@@ -2,8 +2,6 @@
 
 Collection of my 'Message of the Day' scripts.
 
-![motd](motd.png)
-
 
 ### Requirements
 
