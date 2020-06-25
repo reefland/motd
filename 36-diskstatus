@@ -82,17 +82,6 @@ for i in "${!disks[@]}"; do
       ;;
     esac;
 
-#    if [[ "${temp}" -eq "ERR" ]]; then 
-#      color=$red
-#    else
-#      # color green if temp <= MAX_TEMP, else red
-#      if [[ "${temp}" -gt "${MAX_TEMP}" ]]; then
-#          color=$red
-#      else
-#          color=$green
-#      fi
-#    fi
-
     # Set color based on known or unknown status
     case $status in
       "without error")
