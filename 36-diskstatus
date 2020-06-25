@@ -24,7 +24,7 @@ disksalias=$(ls -l /dev/disk/by-id/ | grep ${findthese} | grep ${excludethese} |
 # Dynamically generate fixed disk names which will not change
 disks=$(ls -lQ /dev/disk/by-id/ | grep ${findthese} | grep ${excludethese} | col | sort -k 10 | cut -d "\"" -f2 );disks=($disks)
 # Dynamically generate get disk names
-disknames=$(ls -lQ /dev/disk/by-id/ | grep ${findthese} | grep ${excludethese} | col | sort -k 10 | cut -d "\"" -f2 | cut -d "-" -f2);disknames=($disknames)
+disknames=$(ls -lQ /dev/disk/by-id/ | grep ${findthese} | grep ${excludethese} | col | sort -k 10 | cut -d "\"" -f2 | cut -d "-" -f2 | cut -d "_" -f -3);disknames=($disknames)
 # Dynamically grab last 4 digits of disk serial number
 diskserials=$(ls -lQ /dev/disk/by-id/ | grep ${findthese} | grep ${excludethese} | col |sort -k 10 | cut -d "\"" -f2 | rev | cut -c 1-4 | rev);diskserials=($diskserials)
 
@@ -51,7 +51,7 @@ for i in "${!disks[@]}"; do
     unit=${unit% } # Trim trailing space if it has it
 
     # Determine if MAX_TEMP is based on C or F
-    case $unit in
+    case "${unit}" in
       "f"|"F")
         MAX_TEMP=MAX_TEMP_F 
       ;;
@@ -60,21 +60,38 @@ for i in "${!disks[@]}"; do
       ;;
       *) # Unknown value
         MAX_TEMP=0
+        unit=""
       ;;
     esac;
 
     # HDDTEMP can return an error if a drive was hot-swapped since restart
     # Deamon would need to be restarted to pickup new drive
-    if [[ "${temp}" -eq "ERR" ]]; then 
-      color=$red
-    else
-      # color green if temp <= MAX_TEMP, else red
-      if [[ "${temp}" -gt "${MAX_TEMP}" ]]; then
-          color=$red
-      else
-          color=$green
-      fi
-    fi
+    case "${temp}" in
+      "ERR")
+        color=$red
+      ;;
+      "UNK")
+        color=$dim
+      ;;
+      *) # A temperature value
+        if [[ "${temp}" -gt "${MAX_TEMP}" ]]; then
+            color=$red
+        else
+            color=$green
+        fi
+      ;;
+    esac;
+
+#    if [[ "${temp}" -eq "ERR" ]]; then 
+#      color=$red
+#    else
+#      # color green if temp <= MAX_TEMP, else red
+#      if [[ "${temp}" -gt "${MAX_TEMP}" ]]; then
+#          color=$red
+#      else
+#          color=$green
+#      fi
+#    fi
 
     # Set color based on known or unknown status
     case $status in
