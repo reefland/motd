@@ -29,24 +29,24 @@ so that the logs are not compressed and can be grepped.
 
 If `hddtemp` is unable to locate a temperature sensors but smartd shows a sensor exists, it can be added:
 ```bash
-$ sudo hddtemp /dev/sdg
-WARNING: Drive /dev/sdg doesnt seem to have a temperature sensor.
+$ sudo hddtemp /dev/sda
+WARNING: Drive /dev/sda doesnt seem to have a temperature sensor.
 WARNING: This doesnt mean it hasnt got one.
 WARNING: If you are sure it has one, please contact me (hddtemp@guzu.net).
 WARNING: See --help, --debug and --drivebase options.
-/dev/sdg: Samsung SSD 840 Series :  no sensor
+/dev/sda: Samsung SSD 840 Series :  no sensor
 
-$ sudo smartctl -a /dev/sda | grep Temp
+$ sudo smartctl -a /dev/sda | grep -i temp
 190 Airflow_Temperature_Cel 0x0032   077   060   000    Old_age   Always       -       23
 
 ```
 _NOTE: Attribute 194 is common for Hard Drives, however many SSDs use attribute "190" for a temperature sensor, this can be added to the HDDTemp database_
 
 ```bash
-sudo sh -c 'echo \"Samsung SSD \(840\|860\)\" 190 C \"Temp for Samsung SSDs\" >> /etc/hddtemp.db'
+$ sudo sh -c 'echo \"Samsung SSD \(840\|860\)\" 190 C \"Temp for Samsung SSDs\" >> /etc/hddtemp.db'
 
 # Check entry
-tail -1 /etc/hddtemp.db
+$ tail -1 /etc/hddtemp.db
 "Samsung SSD (840|860)" 190 C "Temp for Samsung SSDs"
 ```
 _Note: All the "\" characters are required, it tells bash not to interpret the following character, accept it as a literal._
@@ -55,3 +55,9 @@ _Note: All the "\" characters are required, it tells bash not to interpret the f
 * Field 2: SMART data field number (190 in this case)
 * Field 3: temperature unit (C|F)
 * Field 4: label string / comment you define
+
+Now HDDTemp shows device temperature:
+```bash
+$ sudo hddtemp /dev/sda
+/dev/sda: Samsung SSD 840 Series: 22 C
+```
