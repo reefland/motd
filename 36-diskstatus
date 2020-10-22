@@ -24,9 +24,11 @@ findthese="-e ata- -e scsi-SATA_"  # Used by grep to define disk by id types to 
 excludethese="-ve ""part[0-9]"" -e ""sr[0-9]"" -e ""wwn-"" -e ""total"""
 
 # Dynamically generate simple disk names available (sda, sdb, sdc, ...)  these change if disks are removed
-disksalias=$(ls -l /dev/disk/by-id/|grep ${findthese}|grep ${excludethese}|col|sort -k 10|uniq -f 10|cut -d "/" -f3 );disksalias=($disksalias)
+disksalias=$(ls -l /dev/disk/by-id/|grep ${findthese}|grep ${excludethese}|col|sort -k 10|uniq -f 10|cut -d "/" -f3);disksalias=($disksalias)
 
-rawdisks=$(ls -lQ /dev/disk/by-id/|grep ${findthese}|grep ${excludethese}|col|sort -k 10|uniq -f 10|cut -d "\"" -f2)
+# Capture Raw Disk Data to Work on
+rawdisks=$(ls -lQ /dev/disk/by-id/|grep ${findthese}|grep ${excludethese}|col|sort -k 10|uniq -f 10|cut -d "\"" -f2);rawdisks=($rawdisks)
+
 # Dynamically generate fixed disk names which will not change
 disks=$(printf '%s\n' "${rawdisks[@]}"|cut -d "_" -f -3);disks=($disks)
 # Dynamically generate get disk names
