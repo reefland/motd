@@ -17,17 +17,24 @@ red="\e[1;31m"
 dim="\e[2m"
 undim="\e[0m"
 
-# Types of disks to look for:
+#------------------------------------------------------------------------------
+# You can update this - Types of disks to look for:
 findthese="-e ata- -e scsi-SATA_"  # Used by grep to define disk by id types to include IDE/SATA - you might add another for usb "-e ata- -e usb-"
 
-# Types of disks to exclude such as partitions, cd-roms, world wide names, etc.
-excludethese="-ve ""part[0-9]"" -e ""sr[0-9]"" -e ""wwn-"" -e ""total"""
+# You can update this - Types of disks to exclude:
+excludethese="-e ""wwn-"" "
+#------------------------------------------------------------------------------
+
+# Don't update below this here
+
+# These are not disks: partitions, cd-roms, etc.
+notdisks="-e ""part[0-9]"" -e ""sr[0-9]"" -e "" dm-"" -e "" md-"" -e ""total"""
 
 # Dynamically generate simple disk names available (sda, sdb, sdc, ...)  these change if disks are removed
-disksalias=$(ls -l /dev/disk/by-id/|grep ${findthese}|grep ${excludethese}|col|sort -k 10|uniq -f 10|cut -d "/" -f3);disksalias=($disksalias)
+disksalias=$(ls -l /dev/disk/by-id/|grep ${findthese}|grep -v ${notdisks} ${excludethese}|col|sort -k 10|uniq -f 10|cut -d "/" -f3);disksalias=($disksalias)
 
 # Capture Raw Disk Data to Work on
-rawdisks=$(ls -lQ /dev/disk/by-id/|grep ${findthese}|grep ${excludethese}|col|sort -k 10|uniq -f 10|cut -d "\"" -f2);rawdisks=($rawdisks)
+rawdisks=$(ls -lQ /dev/disk/by-id/|grep ${findthese}|grep -v ${notdisks}|col|sort -k 10|uniq -f 10|cut -d "\"" -f2);rawdisks=($rawdisks)
 
 # Dynamically generate fixed disk names which will not change
 disks=$(printf '%s\n' "${rawdisks[@]}"|cut -d "_" -f -3);disks=($disks)
