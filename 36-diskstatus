@@ -29,7 +29,7 @@ ignorethese="ata-Samsung"
 # You can update this - This is used by sed to remove text from disk device
 # names. This does not alter device selection like ones above.  This just helps
 # to make disk device names nicer.
-sed_filter="s/\(scsi-SATA_\|ata-\)//"
+sed_filter="s/^scsi-SATA_//; s/^ata-//; s/Series_//"
 #------------------------------------:------------------------------------------
 
 # Don't update below this here
@@ -37,24 +37,19 @@ sed_filter="s/\(scsi-SATA_\|ata-\)//"
 # These are not disks: partitions, cd-roms, etc.
 notdisks="part[0-9]|sr[0-9]|/dm-|/md-|total"
 
-# if additional items defined to ignore, add it to the list.
-if [ -n $ignorethese ]; then
-  notdisks+="|"$ignorethese
-fi  
-
 # Collect all disk devices which don't match "notdisks"
-alldisks=$(find /dev/disk/by-id/ -type l -printf "%p %l\n" | sort -k 2  | awk -F/ -v b=$notdisks '$0 ~ a && $0 !~ b  { print }')
+alldisks=$(find /dev/disk/by-id/ -type l -printf "%p %l\n" | sort -k 2  | awk -F/ -v a=$notdisks '$0 !~ a  { print }')
 
 # Dynamically generate simple disk names available (sda, sdb, sdc, ...)  these change if disks are removed
-disksalias=$(echo "${alldisks[@]}" | awk -F/ -v a=$findthese '$0 ~ a { print $7}' | uniq);disksalias=($disksalias)
+disksalias=$(echo "${alldisks[@]}" | awk -F/ -v a=$findthese -v b=$ignorethese '$0 ~ a && $0 !~ b { print $7 }' | uniq);disksalias=($disksalias)
 
 # Capture Raw Disk Data to Work on.
 # Assumption: Last 15 chars can be used to find duplicate device. Combination of device alias and serial number.
 # This will remove any duplicate devices.
-rawdisks=$(echo "${alldisks[@]}" | awk -F'[/ ]' -v a=$findthese '$0 ~ a { print $5}' | rev | uniq -w 15 | rev);rawdisks=($rawdisks)
+rawdisks=$(echo "${alldisks[@]}" | awk -F'[/ ]' -v a=$findthese -v b=$ignorethese '$0 ~ a && $0 !~ b { print $5}' | rev | uniq -w 15 | rev);rawdisks=($rawdisks)
 
 # Clean-up disk names to display with sed_filter 
-disks=$(printf '%s\n' "${rawdisks[@]}"|sed $sed_filter);disks=($disks)
+disks=$(printf '%s\n' "${rawdisks[@]}"|sed "$sed_filter");disks=($disks)
 
 # Grab a shorter subset of the name. It will return everything to the LEFT of the right-most "_"
 shortnames=$(printf '%s\n' "${disks[@]}" | sed -r 's/^(.*)_.*$/\1/');shortnames=($shortnames)
@@ -75,9 +70,19 @@ lines=$(tac $logfiles 2>/dev/null | grep -hiP 'smartd.*previous self-test')
 hddtemp=$(echo -n | nc $hddtemp_host $hddtemp_port |sed 's/|//m' | sed 's/||/ \n/g')
 
 out=""
-for i in "${!rawdisks[@]}"; do
+
+# generate data to display about devices
+for i in "${!disksalias[@]}"; do  #for every /dev/sdX device name
     # Get smartd testing status
-    result=$(echo "${lines}" | awk -v a=${diskserials[$i]} '$0 ~ a {print $(NF-1),$NF;exit}')
+    # Determine all possible names for the disk device
+    possible_names=$(echo "${alldisks[@]}" | awk -v a=${disksalias[$i]} '$0 ~ a { print $1 }');possible_names=($possible_names)
+
+    for name in "${possible_names[@]}";do
+       result=$(echo "${lines}" | awk -v a=${name} '$0 ~ a {print $(NF-1),$NF; exit 1 }')
+       if [ $? -eq 1 ]; then
+         break
+       fi
+    done
 
     # Get Temperature and Unit
     temp=$( (grep "${disksalias[$i]}" <<< "${hddtemp}") | cut -d "|" -f3)
