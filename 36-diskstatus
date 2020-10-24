@@ -18,30 +18,49 @@ dim="\e[2m"
 undim="\e[0m"
 
 #------------------------------------------------------------------------------
-# You can update this - Types of disks to look for:
-findthese="-e ata- -e scsi-SATA_"  # Used by grep to define disk by id types to include IDE/SATA - you might add another for usb "-e ata- -e usb-"
+# You can update this - Types of disks to look for. Used by awk to define disk
+# by-id types to include IDE/SATA - you might add another for usb "usb-".
+findthese="ata-|scsi-SATA_"
 
-# You can update this - Types of disks to exclude:
-excludethese="-e ""wwn-"" "
-#------------------------------------------------------------------------------
+# You can update this - This is used by awk to remove unwanted disk devices
+# which matched above.
+ignorethese="ata-Samsung"
+
+# You can update this - This is used by sed to remove text from disk device
+# names. This does not alter device selection like ones above.  This just helps
+# to make disk device names nicer.
+sed_filter="s/\(scsi-SATA_\|ata-\)//"
+#------------------------------------:------------------------------------------
 
 # Don't update below this here
 
 # These are not disks: partitions, cd-roms, etc.
-notdisks="-e ""part[0-9]"" -e ""sr[0-9]"" -e "" dm-"" -e "" md-"" -e ""total"""
+notdisks="part[0-9]|sr[0-9]|/dm-|/md-|total"
+
+# if additional items defined to ignore, add it to the list.
+if [ -n $ignorethese ]; then
+  notdisks+="|"$ignorethese
+fi  
+
+# Collect all disk devices which don't match "notdisks"
+alldisks=$(find /dev/disk/by-id/ -type l -printf "%p %l\n" | sort -k 2  | awk -F/ -v b=$notdisks '$0 ~ a && $0 !~ b  { print }')
 
 # Dynamically generate simple disk names available (sda, sdb, sdc, ...)  these change if disks are removed
-disksalias=$(ls -l /dev/disk/by-id/|grep ${findthese}|grep -v ${notdisks} ${excludethese}|col|sort -k 10|uniq -f 10|cut -d "/" -f3);disksalias=($disksalias)
+disksalias=$(echo "${alldisks[@]}" | awk -F/ -v a=$findthese '$0 ~ a { print $7}' | uniq);disksalias=($disksalias)
 
-# Capture Raw Disk Data to Work on
-rawdisks=$(ls -lQ /dev/disk/by-id/|grep ${findthese}|grep -v ${notdisks}|col|sort -k 10|uniq -f 10|cut -d "\"" -f2);rawdisks=($rawdisks)
+# Capture Raw Disk Data to Work on.
+# Assumption: Last 15 chars can be used to find duplicate device. Combination of device alias and serial number.
+# This will remove any duplicate devices.
+rawdisks=$(echo "${alldisks[@]}" | awk -F'[/ ]' -v a=$findthese '$0 ~ a { print $5}' | rev | uniq -w 15 | rev);rawdisks=($rawdisks)
 
-# Dynamically generate fixed disk names which will not change
-disks=$(printf '%s\n' "${rawdisks[@]}"|cut -d "_" -f -3);disks=($disks)
-# Dynamically generate get disk names
-disknames=$(printf '%s\n' "${rawdisks[@]}"|cut -d "-" -f2|cut -d "_" -f -3);disknames=($disknames)
+# Clean-up disk names to display with sed_filter 
+disks=$(printf '%s\n' "${rawdisks[@]}"|sed $sed_filter);disks=($disks)
+
+# Grab a shorter subset of the name. It will return everything to the LEFT of the right-most "_"
+shortnames=$(printf '%s\n' "${disks[@]}" | sed -r 's/^(.*)_.*$/\1/');shortnames=($shortnames)
+
 # Dynamically grab last 4 digits of disk serial number
-diskserials=$(printf '%s\n' "${rawdisks[@]}"|rev|cut -c 1-4 |rev);diskserials=($diskserials)
+diskserials=$(printf '%s\n' "${disks[@]}"| sed -r 's/.*(....)$/\1/');diskserials=($diskserials)
 
 # hddtemp daemon connection info
 hddtemp_host=localhost
@@ -56,9 +75,10 @@ lines=$(tac $logfiles 2>/dev/null | grep -hiP 'smartd.*previous self-test')
 hddtemp=$(echo -n | nc $hddtemp_host $hddtemp_port |sed 's/|//m' | sed 's/||/ \n/g')
 
 out=""
-for i in "${!disks[@]}"; do
+for i in "${!rawdisks[@]}"; do
     # Get smartd testing status
-    status=$( (grep "/dev/disk/by-id/${disks[$i]}" <<< "${lines}") | grep -m 1 -oP "previous self-test.*" | awk '{ print $4 " " $5 }')
+    result=$(echo "${lines}" | awk -v a=${diskserials[$i]} '$0 ~ a {print $(NF-1),$NF;exit}')
+
     # Get Temperature and Unit
     temp=$( (grep "${disksalias[$i]}" <<< "${hddtemp}") | cut -d "|" -f3)
     # Get The Unit from the temperature
@@ -103,7 +123,7 @@ for i in "${!disks[@]}"; do
     esac;
 
     # Set color based on known or unknown status
-    case $status in
+    case "${result}" in
       "without error")
         status_color=$green
       ;;
@@ -111,13 +131,13 @@ for i in "${!disks[@]}"; do
         status_color=$red
       ;;
       *)
-        status="untested"
+        result="untested"
         status_color=$dim
       ;;
     esac;
 
     # print temp & smartd error
-    out+="${disknames[$i]}_${diskserials[$i]} (${disksalias[$i]}):,${color}${temp}${unit}${undim} | ${status_color}${status}${undim},"
+    out+="${shortnames[$i]}_${diskserials[$i]} (${disksalias[$i]}):,${color}${temp}${unit}${undim} | ${status_color}${result}${undim},"
     # insert \n every $COLUMNS column
     if [ $((($i+1) % $COLUMNS)) -eq 0 ]; then
         out+="\n"
