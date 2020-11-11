@@ -57,7 +57,8 @@ shortnames=$(printf '%s\n' "${disks[@]}" | sed -r 's/^(.*)_.*$/\1/');shortnames=
 # Dynamically grab last 4 digits of disk serial number
 diskserials=$(printf '%s\n' "${disks[@]}"| sed -r 's/.*(....)$/\1/');diskserials=($diskserials)
 
-# hddtemp daemon connection info
+# hddtemp daemon connection info. Port numbers will be incremented to look for
+# additional instances of hddtemp.
 hddtemp_host=localhost
 hddtemp_port=7634
 
@@ -66,8 +67,16 @@ logfiles='/var/log/syslog /var/log/syslog.1'
 
 # get all lines with smartd entries from syslog
 lines=$(tac $logfiles 2>/dev/null | grep -hiP 'smartd.*previous self-test')
-# use nc to query temps from hddtemp daemon, echo needed to get NC to return data
-hddtemp=$(echo -n | nc $hddtemp_host $hddtemp_port |sed 's/|//m' | sed 's/||/ \n/g')
+
+# use nc to query temps from each hddtemp daemon instance, echo needed to get NC to return data
+fetch_hddtemp=$(echo -n | nc $hddtemp_host $hddtemp_port |sed 's/|//m' | sed 's/||/ \n/g')
+
+while [[ -n $fetch_hddtemp ]]
+do
+  hddtemp+=$fetch_hddtemp
+  hddtemp_port=$((hddtemp_port+1))
+  fetch_hddtemp=$(echo -n | nc $hddtemp_host $hddtemp_port |sed 's/|//m' | sed 's/||/ \n/g')
+done
 
 out=""
 
