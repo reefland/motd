@@ -106,8 +106,12 @@ for i in "${!disksalias[@]}"; do  #for every /dev/sdX device name
 
        # If no result, see if unexpected results can be found
        if [ -z ${result} ]; then
-         if [ $(tac $logfiles 2>/dev/null | grep -m 1 -HiP "${name}.*self-test" | grep -ci "skip") -eq 1 ]; then   # Test skipped.
+         if [ $(tac $logfiles 2>/dev/null | grep -m 1 -HiP "${name}.*self-test" | grep -ci "skip") -eq 1 ]; then   # Test skipped
            result="skipped"
+           break
+         fi
+         if [ $(tac $logfiles 2>/dev/null | grep -m 1 -HiP "${name}.*self-test" | grep -ci "in progress") -eq 1 ]; then   # Test in progress
+           result="in progress"
            break
          fi
        fi
@@ -164,7 +168,7 @@ for i in "${!disksalias[@]}"; do  #for every /dev/sdX device name
       "with error")
         status_color=$red
       ;;
-      "skipped")
+      "skipped"|"in progress")
         status_color=$yellow
       ;;
       *)
