@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # set column width
-COLUMNS=2
+COLUMNS=4
 # colors
 green="\e[1;32m"
 red="\e[1;31m"
