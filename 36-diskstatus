@@ -114,6 +114,10 @@ for i in "${!disksalias[@]}"; do  #for every /dev/sdX device name
            result="in progress"
            break
          fi
+
+         # Uncomment this to discover other reasons for no test results
+         # If this show nothing, then data has rotated out of where "$logfiles" is checking.
+         # tac $logfiles 2>/dev/null | grep -m 1 -HiP "${name}.*self-test"
        fi
     done
 
@@ -168,11 +172,18 @@ for i in "${!disksalias[@]}"; do  #for every /dev/sdX device name
       "with error")
         status_color=$red
       ;;
-      "skipped"|"in progress")
+      "skipped")
+        status_color=$yellow
+      ;;
+      "in progress")
+        status_color=$yellow
+      ;;
+      "a reset")
+        result="interrupted"
         status_color=$yellow
       ;;
       *)
-        result="untested"
+        result="untested[${result}]"
         status_color=$dim
       ;;
     esac;
