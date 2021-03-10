@@ -1,12 +1,12 @@
 # Message of the Day
 
-Collection of my 'Message of the Day' scripts.
+Collection of 'Message of the Day' scripts.
 
 
 ### Requirements
 
   * [update-motd](https://launchpad.net/update-motd)
-  * [figlet](http://www.figlet.org/) & [lolcat](https://github.com/busyloop/lolcat) (for `10-display-name`)
+  * [figlet](http://www.figlet.org/) & [lolcat](https://github.com/busyloop/lolcat) (for `10-hostname`)
   * [hddtemp](https://savannah.nongnu.org/projects/hddtemp/) (for `36-diskstatus`)
   * [smartmontools](https://www.smartmontools.org/) (for `36-diskstatus`)
 
