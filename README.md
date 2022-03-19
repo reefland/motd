@@ -1,14 +1,13 @@
-# Message of the Day
+# Message of the Day (MOTD) with ZFS Support
 
-Collection of 'Message of the Day' scripts.
+Collection of 'Message of the Day' scripts with ZFS Support
 
+## Requirements
 
-### Requirements
-
-  * [update-motd](https://launchpad.net/update-motd)
-  * [figlet](http://www.figlet.org/) & [lolcat](https://github.com/busyloop/lolcat) (for `10-hostname`)
-  * [hddtemp](https://savannah.nongnu.org/projects/hddtemp/) (for `36-diskstatus`)
-  * [smartmontools](https://www.smartmontools.org/) (for `36-diskstatus`)
+* [update-motd](https://launchpad.net/update-motd)
+* [figlet](http://www.figlet.org/) & [lolcat](https://github.com/busyloop/lolcat) (for `10-hostname`)
+* [hddtemp](https://savannah.nongnu.org/projects/hddtemp/) (for `36-diskstatus`)
+* [smartmontools](https://www.smartmontools.org/) (for `36-diskstatus`)
 
 ### How do I set it up?
 
@@ -24,11 +23,11 @@ You have to enable smartd monitoring & run regular self-tests for it to display 
 If you use `50-fail2ban` you should comment out the `compress` option in `/etc/logrotate.d/fail2ban`,
 so that the logs are not compressed and can be grepped.
 
-
 -----
 
 If `hddtemp` is unable to locate a temperature sensors but smartd shows a sensor exists, it can be added:
-```bash
+
+```shell
 $ sudo hddtemp /dev/sda
 WARNING: Drive /dev/sda doesnt seem to have a temperature sensor.
 WARNING: This doesnt mean it hasnt got one.
@@ -40,7 +39,8 @@ $ sudo smartctl -a /dev/sda | grep -i temp
 190 Airflow_Temperature_Cel 0x0032   077   060   000    Old_age   Always       -       23
 
 ```
-_NOTE: Attribute 194 is common for Hard Drives, however many SSDs use attribute "190" for a temperature sensor, this can be added to the HDDTemp database_
+
+NOTE: Attribute 194 is common for Hard Drives, however many SSDs use attribute "190" for a temperature sensor, this can be added to the HDDTemp database.
 
 ```bash
 $ sudo sh -c 'echo \"Samsung SSD \(840\|860\)\" 190 C \"Temp for Samsung SSDs\" >> /etc/hddtemp.db'
@@ -49,6 +49,7 @@ $ sudo sh -c 'echo \"Samsung SSD \(840\|860\)\" 190 C \"Temp for Samsung SSDs\" 
 $ tail -1 /etc/hddtemp.db
 "Samsung SSD (840|860)" 190 C "Temp for Samsung SSDs"
 ```
+
 _Note: All the "\" characters are required, it tells bash not to interpret the following character, accept it as a literal._
 
 * Field 1: Use a string or regex matching the drive's display name (as reported by hddtemp output)
@@ -57,7 +58,8 @@ _Note: All the "\" characters are required, it tells bash not to interpret the f
 * Field 4: label string / comment you define
 
 Now HDDTemp shows device temperature:
-```bash
+
+```shell
 $ sudo hddtemp /dev/sda
 /dev/sda: Samsung SSD 840 Series: 22 C
 ```
