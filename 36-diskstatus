@@ -1,3 +1,4 @@
+$ cat /etc/update-motd.d/36-diskstatus 
 #!/bin/bash
 # NAME:      36-diskstatus.sh
 #
@@ -7,8 +8,8 @@
 # Originally Based on: https://github.com/yboetz/motd
 #
 # AUTHOR     : Richard J. DURSO
-# DATE       : 01/09/2021
-# VERSION    : 1.5
+# DATE       : 03/19/2022
+# VERSION    : 1.6
 ##############################################################################
 
 #---[ Variables and Constants ]-----------------------------------------------
@@ -41,7 +42,7 @@ logfiles='/var/log/syslog /var/log/syslog.1'
 #---[ You can updates these ]--------------------------------------------------
 # Types of disks to look for. Used by awk to define disk by-id types to include
 # IDE/SATA - you might add another for usb "usb-".
-findthese="ata-|scsi-SATA_"
+findthese="ata-|scsi-SATA_|nvme-Samsung"
 
 # This is used by awk to remove unwanted disk devices which matched above.
 ignorethese="ata-Samsung"
@@ -49,7 +50,7 @@ ignorethese="ata-Samsung"
 # This is used by sed to remove text from disk device names. This does not alter
 # device selection like ones above.  This just helps to make disk device names
 # nicer (smaller).
-sed_filter="s/^scsi-SATA_//; s/^ata-//; s/Series_//"
+sed_filter="s/^scsi-SATA_//; s/^ata-//; s/Series_//; s/^nvme-//"
 #------------------------------------:------------------------------------------
 
 #---[ Do Not Update These ]-----------------------------------------------------
@@ -115,17 +116,30 @@ for i in "${!disksalias[@]}"; do  #for every /dev/sdX device name
            break
          fi
 
+         # Still nothing, device not being monitored? See if smartctl has a status we can show
+         result=$(smartctl -a /dev/${disksalias[$i]} | awk '/^SMART.*result:/{print $(NF)}')
+
          # Uncomment this to discover other reasons for no test results
          # If this show nothing, then data has rotated out of where "$logfiles" is checking.
          # tac $logfiles 2>/dev/null | grep -m 1 -HiP "${name}.*self-test"
        fi
     done
 
+    # See if NVME device
+    if [ $(echo ${disksalias[$i]} | grep -ci "nvme") -eq 1 ]; then
+      # HDD Temp does not support NVMe device, try to get from smartctl
+      # Assumes something like:  "Temperature:                        37 Celsius" is returned
+      nvmetmp=$(smartctl -A /dev/${disksalias[$i]} | awk '/^Temperature:/{print $2, $3}')
+      temp=$(echo $nvmetmp | awk '{print $1}')
+      unit=$(echo $nvmetmp | awk '{print substr($2,1,1)}') #Only need 1st character
+
+    else
     # Get Temperature and Unit
     temp=$( (grep "${disksalias[$i]}" <<< "${hddtemp}") | cut -d "|" -f3)
     # Get The Unit from the temperature
     unit=$( (grep "${disksalias[$i]}" <<< "${hddtemp}") | cut -d "|" -f4)
     unit=${unit% } # Trim trailing space if it has it
+    fi
 
     # Determine if MAX_TEMP is based on C or F
     case "${unit}" in
@@ -166,10 +180,10 @@ for i in "${!disksalias[@]}"; do  #for every /dev/sdX device name
 
     # Set color based on known or unknown status
     case "${result}" in
-      "without error")
+      "without error"|"PASSED")
         status_color=$green
       ;;
-      "with error")
+      "with error"|"FAILED!")
         status_color=$red
       ;;
       "skipped")

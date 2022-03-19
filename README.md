@@ -1,6 +1,6 @@
-# Message of the Day (MOTD) with ZFS Support
+# Message of the Day (MOTD) with ZFS Enhancements
 
-Collection of 'Message of the Day' scripts with ZFS Support
+Collection of 'Message of the Day' scripts with ZFS Enhancements
 
 ## Requirements
 
@@ -21,13 +21,14 @@ The script `36-diskstatus` greps syslog for smartd entries to read last self-tes
 You have to enable smartd monitoring & run regular self-tests for it to display anything.
 
 If you use `50-fail2ban` you should comment out the `compress` option in `/etc/logrotate.d/fail2ban`,
-so that the logs are not compressed and can be grepped.
+so that the logs are not compressed and can be read by `grep`.
 
 ![screen_shot](screen_shot.png)
 
------
+---
+The HDDTemp project is falling behind.  It lacks database entries for many not so new technologies.  It should be straight forward to add sensors for SATA SSD devices, but it lacks any NVMe support (see below for workaround).
 
-If `hddtemp` is unable to locate a temperature sensor but smartd shows a sensor attribute exists, it can be added:
+If `hddtemp` is unable to locate a temperature sensor but `smartctl` shows a sensor attribute exists, it can be added:
 
 ```shell
 $ sudo hddtemp /dev/sda
@@ -42,7 +43,7 @@ $ sudo smartctl -a /dev/sda | grep -i temp
 
 ```
 
-NOTE: Attribute `194` is common for Hard Drives, however many SSDs use attribute `190` for a temperature sensor, this can be added to the HDDTemp database.
+NOTE: Attribute `194` is common for Hard Drives, however many SSDs use attribute `190` for a temperature sensor, this can be added to the HDDTemp database:
 
 ```bash
 $ sudo sh -c 'echo \"Samsung SSD \(840\|860\)\" 190 C \"Temp for Samsung SSDs\" >> /etc/hddtemp.db'
@@ -65,3 +66,44 @@ Once added to the HDDTemp Database, HDDTemp should show device temperature:
 $ sudo hddtemp /dev/sda
 /dev/sda: Samsung SSD 840 Series: 22 C
 ```
+
+---
+
+## Disk Status has Limited NVMe Support
+
+Below shows how support for Samsung NVMe devices is provided in `36-diskstatus` as such:
+
+```bash
+#---[ You can updates these ]--------------------------------------------------
+# Types of disks to look for. Used by awk to define disk by-id types to include
+# IDE/SATA - you might add another for usb "usb-".
+findthese="ata-|scsi-SATA_|nvme-Samsung"
+```
+
+You can find possible names for your NVMe devices as shown below. Then edit file `36-diskstatus` and update the `findthese=` variable to include the name of your device.
+
+```shell
+$ cd /dev/disk/by-id
+$ ls -l nvme*
+
+lrwxrwxrwx 1 root root 13 Mar 18 19:56 nvme-eui.002538db114050ce -> ../../nvme0n1
+lrwxrwxrwx 1 root root 13 Mar 18 19:56 nvme-Samsung_SSD_980_1TB_S64ANS0RB07316T -> ../../nvme0n1
+/nvme0n1
+```
+
+Above shows why `nvme-Samsung` string was selected to search for.
+
+### NVMe Device Temperature
+
+The HDD Temp utility does not support NVMe devices.  If `36-diskstatus` script detects a NVMe device, it will try to get the temperature from `smartctl` by looking for `Temperature:` and parsing the value such as `37 Celsius`.
+
+![NVME Shows Temp Status](nvme_status_untested.png)
+
+* If you see `untested` (or `PASSED`) that indicates no previous test results could be parsed from log files.  Review `/etc/smartd.conf` file to see if its part of the testing schedule.
+* If the script is unable to located any previous test results then it will return whatever the current status from `smartctl` value of `SMART overall-health self-assessment test result:` is such as `PASSED`:
+
+![NVMe Test Status](nvme_status_passed.png)
+
+---
+
+Originally Based on: [https://github.com/yboetz/motd](https://github.com/yboetz/motd)
