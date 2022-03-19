@@ -1,4 +1,3 @@
-$ cat /etc/update-motd.d/36-diskstatus 
 #!/bin/bash
 # NAME:      36-diskstatus.sh
 #
