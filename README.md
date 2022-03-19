@@ -23,6 +23,8 @@ You have to enable smartd monitoring & run regular self-tests for it to display 
 If you use `50-fail2ban` you should comment out the `compress` option in `/etc/logrotate.d/fail2ban`,
 so that the logs are not compressed and can be grepped.
 
+![screen_shot](screen_shot.png)
+
 -----
 
 If `hddtemp` is unable to locate a temperature sensors but smartd shows a sensor exists, it can be added:
