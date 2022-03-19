@@ -27,7 +27,7 @@ so that the logs are not compressed and can be grepped.
 
 -----
 
-If `hddtemp` is unable to locate a temperature sensors but smartd shows a sensor exists, it can be added:
+If `hddtemp` is unable to locate a temperature sensor but smartd shows a sensor attribute exists, it can be added:
 
 ```shell
 $ sudo hddtemp /dev/sda
@@ -42,7 +42,7 @@ $ sudo smartctl -a /dev/sda | grep -i temp
 
 ```
 
-NOTE: Attribute 194 is common for Hard Drives, however many SSDs use attribute "190" for a temperature sensor, this can be added to the HDDTemp database.
+NOTE: Attribute `194` is common for Hard Drives, however many SSDs use attribute `190` for a temperature sensor, this can be added to the HDDTemp database.
 
 ```bash
 $ sudo sh -c 'echo \"Samsung SSD \(840\|860\)\" 190 C \"Temp for Samsung SSDs\" >> /etc/hddtemp.db'
@@ -52,14 +52,14 @@ $ tail -1 /etc/hddtemp.db
 "Samsung SSD (840|860)" 190 C "Temp for Samsung SSDs"
 ```
 
-_Note: All the "\" characters are required, it tells bash not to interpret the following character, accept it as a literal._
+_Note: All the `\` characters are required, it tells bash not to interpret the following character, accept it as a literal._
 
 * Field 1: Use a string or regex matching the drive's display name (as reported by hddtemp output)
 * Field 2: SMART data field number (190 in this case)
 * Field 3: temperature unit (C|F)
 * Field 4: label string / comment you define
 
-Now HDDTemp shows device temperature:
+Once added to the HDDTemp Database, HDDTemp should show device temperature:
 
 ```shell
 $ sudo hddtemp /dev/sda
