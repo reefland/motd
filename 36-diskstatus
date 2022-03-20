@@ -16,8 +16,8 @@
 MAX_TEMP_C=40
 MAX_TEMP_F=104
 
-# Warning Temperature, percentage of MAX_TEMP 1 = 100% (yellow color)
-WARN_PERCENT=0.85
+# Warning Temperature, percentage of MAX_TEMP
+WARN_PERCENT=85
 
 # set column width
 COLUMNS=2
@@ -138,7 +138,7 @@ for i in "${!disksalias[@]}"; do  #for every /dev/sdX device name
       unit=$(echo $nvmetmp | awk '{print substr($2,1,1)}') #Only need 1st character
 
       # See if we need to convert C to F
-      if [ $convert_c_to_f ] && ([ $unit == "C" ] || [ $unit == "c"])
+      if $($convert_c_to_f)  && ([ $unit == "C" ] || [ $unit == "c"])
       then
         temp=$(expr 9 '*' $temp / 5 + 32)
         unit="F"
@@ -154,10 +154,10 @@ for i in "${!disksalias[@]}"; do  #for every /dev/sdX device name
     # Determine if MAX_TEMP is based on C or F
     case "${unit}" in
       "f"|"F")
-        MAX_TEMP=MAX_TEMP_F 
+        MAX_TEMP=$MAX_TEMP_F 
       ;;
       "c"|"C")
-        MAX_TEMP=MAX_TEMP_C
+        MAX_TEMP=$MAX_TEMP_C
       ;;
       *) # Unknown value
         MAX_TEMP=0
@@ -178,8 +178,8 @@ for i in "${!disksalias[@]}"; do  #for every /dev/sdX device name
         if [[ "${temp}" -gt "${MAX_TEMP}" ]]; then
             color=$red
         else
-          WARN_TEMP=$(echo "${MAX_TEMP_F} * ${WARN_PERCENT}" | bc)
-          if [[ "${temp}" -gt $(printf %.0f ${WARN_TEMP}) ]]; then
+          WARN_TEMP=$(expr ${MAX_TEMP} '*' ${WARN_PERCENT} /  100)
+          if [[ ${temp} -gt ${WARN_TEMP} ]]; then
             color=$yellow
           else          
             color=$green
