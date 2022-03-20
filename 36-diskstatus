@@ -7,8 +7,8 @@
 # Originally Based on: https://github.com/yboetz/motd
 #
 # AUTHOR     : Richard J. DURSO
-# DATE       : 03/19/2022
-# VERSION    : 1.6
+# DATE       : 03/20/2022
+# VERSION    : 1.7
 ##############################################################################
 
 #---[ Variables and Constants ]-----------------------------------------------
@@ -34,6 +34,11 @@ undim="\e[0m"
 hddtemp_host=localhost
 hddtemp_port=7634
 
+# hddtemp can already report F or C temperatures for SATA devices.  If this script
+# grabs a temp from smartctl and it is reported in "C" set the following to 
+# if you want that value converted to F.
+convert_c_to_f=/bin/true
+
 # logfiles to check
 logfiles='/var/log/syslog /var/log/syslog.1'
 #------------------------------------------------------------------------------
@@ -50,7 +55,7 @@ ignorethese="ata-Samsung"
 # device selection like ones above.  This just helps to make disk device names
 # nicer (smaller).
 sed_filter="s/^scsi-SATA_//; s/^ata-//; s/Series_//; s/^nvme-//"
-#------------------------------------:------------------------------------------
+#-------------------------------------------------------------------------------
 
 #---[ Do Not Update These ]-----------------------------------------------------
 # These are not disks: partitions, cd-roms, etc.
@@ -75,7 +80,7 @@ shortnames=$(printf '%s\n' "${disks[@]}" | sed -r 's/^(.*)_.*$/\1/');shortnames=
 
 # Dynamically grab last 4 digits of disk serial number
 diskserials=$(printf '%s\n' "${disks[@]}"| sed -r 's/.*(....)$/\1/');diskserials=($diskserials)
-#------------------------------------:------------------------------------------
+#-------------------------------------------------------------------------------
 
 # get all lines with smartd entries from syslog
 lines=$(tac $logfiles 2>/dev/null | grep -hiP 'smartd.*previous self-test')
@@ -115,12 +120,12 @@ for i in "${!disksalias[@]}"; do  #for every /dev/sdX device name
            break
          fi
 
-         # Still nothing, device not being monitored? See if smartctl has a status we can show
-         result=$(smartctl -a /dev/${disksalias[$i]} | awk '/^SMART.*result:/{print $(NF)}')
-
          # Uncomment this to discover other reasons for no test results
          # If this show nothing, then data has rotated out of where "$logfiles" is checking.
          # tac $logfiles 2>/dev/null | grep -m 1 -HiP "${name}.*self-test"
+
+         # Still no result, device not being monitored? See if smartctl has a status we can show
+         result=$(smartctl -a /dev/${disksalias[$i]} | awk '/^SMART.*result:/{print $(NF)}')
        fi
     done
 
@@ -132,12 +137,18 @@ for i in "${!disksalias[@]}"; do  #for every /dev/sdX device name
       temp=$(echo $nvmetmp | awk '{print $1}')
       unit=$(echo $nvmetmp | awk '{print substr($2,1,1)}') #Only need 1st character
 
+      # See if we need to convert C to F
+      if [ $convert_c_to_f ] && ([ $unit == "C" ] || [ $unit == "c"])
+      then
+        temp=$(expr 9 '*' $temp / 5 + 32)
+        unit="F"
+      fi
     else
-    # Get Temperature and Unit
-    temp=$( (grep "${disksalias[$i]}" <<< "${hddtemp}") | cut -d "|" -f3)
-    # Get The Unit from the temperature
-    unit=$( (grep "${disksalias[$i]}" <<< "${hddtemp}") | cut -d "|" -f4)
-    unit=${unit% } # Trim trailing space if it has it
+      # Get Temperature and Unit
+      temp=$( (grep "${disksalias[$i]}" <<< "${hddtemp}") | cut -d "|" -f3)
+      # Get The Unit from the temperature
+      unit=$( (grep "${disksalias[$i]}" <<< "${hddtemp}") | cut -d "|" -f4)
+      unit=${unit% } # Trim trailing space if it has it
     fi
 
     # Determine if MAX_TEMP is based on C or F
