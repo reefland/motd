@@ -71,27 +71,38 @@ $ sudo hddtemp /dev/sda
 
 ## Disk Status has Limited NVMe Support
 
-Below shows how support for Samsung NVMe devices is provided in `36-diskstatus` as such:
+Below shows how support for NVMe devices is provided in `36-diskstatus` where it will include any device that starts with `nvme-`:
 
 ```bash
 #---[ You can updates these ]--------------------------------------------------
 # Types of disks to look for. Used by awk to define disk by-id types to include
 # IDE/SATA - you might add another for usb "usb-".
-findthese="ata-|scsi-SATA_|nvme-Samsung"
+findthese="ata-|scsi-SATA_|nvme-"
 ```
 
-You can find possible names for your NVMe devices as shown below. Then edit file `36-diskstatus` and update the `findthese=` variable to include the name of your device.
+Then any devices matching `nvme-eui` or `nvme-nvme` are removed from the list.  This should leave just devices with the manufacture name such as Samsung, HP, Sabrent, WD, etc. If you have some odd name detected then you probably need to add another filter here.
 
-```shell
-$ cd /dev/disk/by-id
-$ ls -l nvme*
-
-lrwxrwxrwx 1 root root 13 Mar 18 19:56 nvme-eui.002538db114050ce -> ../../nvme0n1
-lrwxrwxrwx 1 root root 13 Mar 18 19:56 nvme-Samsung_SSD_980_1TB_S64ANS0RB07316T -> ../../nvme0n1
-/nvme0n1
+```yaml
+# This is used by awk to remove unwanted disk devices which matched above.
+ignorethese="ata-Samsung|nvme-(eui|nvme).*"
 ```
 
-Above shows why `nvme-Samsung` string was selected to search for.
+Lastly there is a filter which attempts to pretty up the device names for display, for NVMe devices it removes the `nvme-` prefix with the intent that the device name will now start with your manufacture name.
+
+```yaml
+# This is used by sed to remove text from disk device names. This does not alter
+# device selection like ones above.  This just helps to make disk device names
+# nicer (smaller).
+sed_filter="s/^scsi-SATA_//; s/^ata-//; s/Series_//; s/^nvme-//;"
+```
+
+Examples:
+
+* `Samsung_SSD_980_1TB_316T` is a Samsung device, model 980 with 1 TB capacity with last 4 digits of the serial number `316T`.
+* `HP_SSD_EX950_1TB_3005` is a HP (Hewlett Packard) model EX950 with a 1 TB capacity with last 4 digits of serial number `3005`.
+* `WDS100T3XHC-00SJG0_2993` shows how horrible WD (Western Digital) names their devices.  This is a WD Black model SN750 but there is no way to know that by the device name.
+
+Should you have many devices and one reports `FAILED` having part of the serial number will be helpful in identifying which device has a problem.
 
 ### NVMe Device Temperature
 
@@ -100,11 +111,11 @@ The HDD Temp utility does not support NVMe devices.  If `36-diskstatus` script d
 ![NVME Shows Temp Status](nvme_status_untested.png)
 
 * If you see `untested` (or `PASSED`) that indicates no previous test results could be parsed from log files.  Review `/etc/smartd.conf` file to see if its part of the testing schedule.
-* If the script is unable to located any previous test results then it will return whatever the current status from `smartctl` value of `SMART overall-health self-assessment test result:` is such as `PASSED`:
+* If the script is unable to located any previous test results then it will return whatever the current status from `smartctl` value of `SMART overall-health self-assessment test result:` is such as `PASSED`.
 
 ![NVMe Test Status](nvme_status_passed.png)
 
-The HDDTemp utility allows devices to report in Celsius or Fahrenheit. If the script had to pull a temperature from `smartctl` and that value was Celsius and you want it converted to Fahrenheit then set this variable to `/bin/true` (set to `/bin/false` for Celsius).
+The HDDTemp utility allows devices to report in Celsius or Fahrenheit. If the script had to pull a temperature from `smartctl` and that value was Celsius, you can convert that to Fahrenheit by setting variable `convert_c_to_f` to `/bin/true` (set to `/bin/false` for Celsius).
 
 ```bash
 # hddtemp can already report F or C temperatures for SATA devices.  If this script

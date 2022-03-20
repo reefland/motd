@@ -46,15 +46,15 @@ logfiles='/var/log/syslog /var/log/syslog.1'
 #---[ You can updates these ]--------------------------------------------------
 # Types of disks to look for. Used by awk to define disk by-id types to include
 # IDE/SATA - you might add another for usb "usb-".
-findthese="ata-|scsi-SATA_|nvme-Samsung"
+findthese="ata-|scsi-SATA_|nvme-"
 
 # This is used by awk to remove unwanted disk devices which matched above.
-ignorethese="ata-Samsung"
+ignorethese="ata-Samsung|nvme-(eui|nvme).*"
 
 # This is used by sed to remove text from disk device names. This does not alter
 # device selection like ones above.  This just helps to make disk device names
 # nicer (smaller).
-sed_filter="s/^scsi-SATA_//; s/^ata-//; s/Series_//; s/^nvme-//"
+sed_filter="s/^scsi-SATA_//; s/^ata-//; s/Series_//; s/^nvme-//;"
 #-------------------------------------------------------------------------------
 
 #---[ Do Not Update These ]-----------------------------------------------------
