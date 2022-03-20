@@ -104,6 +104,17 @@ The HDD Temp utility does not support NVMe devices.  If `36-diskstatus` script d
 
 ![NVMe Test Status](nvme_status_passed.png)
 
+The HDDTemp utility allows devices to report in Celsius or Fahrenheit. If the script had to pull a temperature from `smartctl` and that value was Celsius and you want it converted to Fahrenheit then set this variable to `/bin/true` (set to `/bin/false` for Celsius).
+
+```bash
+# hddtemp can already report F or C temperatures for SATA devices.  If this script
+# grabs a temp from smartctl and it is reported in "C" set the following to 
+# if you want that value converted to F.
+convert_c_to_f=/bin/true
+```
+
+![Converted C to F](nvme_status_c_to_f.png)
+
 ---
 
 Originally Based on: [https://github.com/yboetz/motd](https://github.com/yboetz/motd)
