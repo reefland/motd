@@ -126,6 +126,13 @@ convert_c_to_f=/bin/true
 
 ![Converted C to F](nvme_status_c_to_f.png)
 
+NOTE: Some devices may go into sleep mode and report `SLP` instead of current temperature:
+
+```text
+disk status:
+  SSSTC_CVB-8D128-HP_F1PA (sda):  SLP | without error
+```
+
 ---
 
 ### Drive Testing Results
