@@ -7,8 +7,8 @@
 # Originally Based on: https://github.com/yboetz/motd
 #
 # AUTHOR     : Richard J. DURSO
-# DATE       : 03/20/2022
-# VERSION    : 1.7
+# DATE       : 04/19/2022
+# VERSION    : 1.7.1
 ##############################################################################
 
 #---[ Variables and Constants ]-----------------------------------------------
@@ -173,6 +173,11 @@ for i in "${!disksalias[@]}"; do  #for every /dev/sdX device name
       ;;
       "UNK")
         color=$dim
+      ;;
+      "32"|"0") # 0C or 32F device likley has no actual temp sensor
+        temp="N/A"
+        color=$dim
+        unit=""
       ;;
       *) # A temperature value
         if [[ "${temp}" -gt "${MAX_TEMP}" ]]; then
