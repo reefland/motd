@@ -109,21 +109,21 @@ for i in "${!disksalias[@]}"; do  #for every /dev/sdX device name
     possible_names=$(echo "${alldisks[@]}" | awk -v a=${disksalias[$i]} '$0 ~ a { print $1 }');possible_names=($possible_names)
 
     for name in "${possible_names[@]}";do
-       result=$(echo "${lines}" | awk -v a=${name} '$0 ~ a {print $(NF-1),$NF; exit 1 }')
-       if [ $? -eq 1 ]; then
-         break
-       fi
+      result=$(echo "${lines}" | awk -v a=${name} '$0 ~ a {print $(NF-1),$NF; exit 1 }')
+      if [ $? -eq 1 ]; then
+        break
+      fi
 
-       # If no result, see if unexpected results can be found
-       if [ -z ${result} ]; then
-         if [ $(tac $logfiles 2>/dev/null | grep -m 1 -HiP "${name}.*self-test" | grep -ci "skip") -eq 1 ]; then   # Test skipped
-           result="skipped"
-           break
-         fi
-         if [ $(tac $logfiles 2>/dev/null | grep -m 1 -HiP "${name}.*self-test" | grep -ci "in progress") -eq 1 ]; then   # Test in progress
-           result="in progress"
-           break
-         fi
+      # If no result, see if unexpected results can be found
+      if [ -z ${result} ]; then
+        if [ $(tac $logfiles 2>/dev/null | grep -m 1 -HiP "${name}.*self-test" | grep -ci "skip") -eq 1 ]; then   # Test skipped
+          result="skipped"
+          break
+        fi
+        if [ $(tac $logfiles 2>/dev/null | grep -m 1 -HiP "${name}.*self-test" | grep -ci "in progress") -eq 1 ]; then   # Test in progress
+          result="in progress"
+          break
+        fi
 
          # Uncomment this to discover other reasons for no test results
          # If this show nothing, then data has rotated out of where "$logfiles" is checking.
