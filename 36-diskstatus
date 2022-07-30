@@ -165,7 +165,7 @@ for i in "${!disksalias[@]}"; do  #for every /dev/sdX device name
     # if we have a temp see if we need to convert to F
     if [ ! -z $temp ]; then 
       # See if we need to convert C to F
-      if $($convert_c_to_f)  && ([ $unit == "C" ] || [ $unit == "c"])
+      if $($convert_c_to_f)  && ([ $unit == "C" ] || [ $unit == "c" ])
       then
         temp=$(expr 9 '*' $temp / 5 + 32)
         unit="F"
