@@ -6,7 +6,7 @@ Collection of 'Message of the Day' scripts with ZFS Enhancements
 
 * [update-motd](https://launchpad.net/update-motd)
 * [figlet](http://www.figlet.org/) & [lolcat](https://github.com/busyloop/lolcat) (for `10-hostname`)
-* [hddtemp](https://savannah.nongnu.org/projects/hddtemp/) (for `36-diskstatus`)
+* [hddtemp](https://savannah.nongnu.org/projects/hddtemp/) (for `36-diskstatus`) [optional]
 * [smartmontools](https://www.smartmontools.org/) (for `36-diskstatus`)
 
 ### How do I set it up?
@@ -26,7 +26,16 @@ so that the logs are not compressed and can be read by `grep`.
 ![screen_shot](screen_shot.png)
 
 ---
-The HDDTemp project is falling behind.  It lacks database entries for many not so new technologies.  It should be straight forward to add sensors for SATA SSD devices, but it lacks any NVMe support (see below for workaround).
+
+## HDDTemp not Required
+
+The `hddtemp` utility was once the primary way to monitor and gather drive temperature information.  However HDDTemp project is considered dead and no longer maintained.  It is no longer included in many distribution repositories. If you do not have HDDTemp this script will fallback to scraping `smartctl` for temperature information.
+
+---
+
+## Adding Sensors to HDDTemp
+
+Since HDDTemp project is no longer maintained it lacks database entries for many not so new technologies.  It should be straight forward to add sensors for SATA SSD devices, but it lacks any NVMe support.
 
 If `hddtemp` is unable to locate a temperature sensor but `smartctl` shows a sensor attribute exists, it can be added:
 
@@ -106,12 +115,7 @@ Should you have many devices and one reports `FAILED` having part of the serial 
 
 ### NVMe Device Temperature
 
-The HDD Temp utility does not support NVMe devices.  If `36-diskstatus` script detects a NVMe device, it will try to get the temperature from `smartctl` by looking for `Temperature:` and parsing the value such as `37 Celsius`.
-
-![NVME Shows Temp Status](nvme_status_untested.png)
-
-* If you see `untested` (or `PASSED`) that indicates no previous test results could be parsed from log files.  Review `/etc/smartd.conf` file to see if its part of the testing schedule.
-* If the script is unable to located any previous test results then it will return whatever the current status from `smartctl` value of `SMART overall-health self-assessment test result:` is such as `PASSED`.
+The HDDTemp utility does not support NVMe devices.  If `36-diskstatus` script detects a NVMe device, it will try to get the temperature from `smartctl` by looking for `Temperature:` and parsing the value such as `38 Celsius`.
 
 ![NVMe Test Status](nvme_status_passed.png)
 
