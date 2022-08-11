@@ -24,7 +24,7 @@ WARN_PERCENT=85
 # set column width
 COLUMNS=2
 # colors
-white="\e[39m"
+# white="\e[39m"
 yellow="\e[1;33m"
 green="\e[1;32m"
 red="\e[1;31m"
@@ -64,15 +64,15 @@ sed_filter="s/^scsi-SATA_//; s/^ata-//; s/Series_//; s/^nvme-//;"
 notdisks="part[0-9]|sr[0-9]|/dm-|/md-|total"
 
 # Collect all disk devices which don't match "notdisks"
-alldisks=$(find /dev/disk/by-id/ -type l -printf "%p %l\n" | sort -k 2  | awk -F/ -v a=$notdisks '$0 !~ a  { print }')
+alldisks=$(find /dev/disk/by-id/ -type l -printf "%p %l\n" | sort -k 2  | awk -F/ -v a="$notdisks" '$0 !~ a  { print }')
 
 # Dynamically generate simple disk names available (sda, sdb, sdc, ...)  these change if disks are removed
-disksalias=$(echo "${alldisks[@]}" | awk -F/ -v a=$findthese -v b=$ignorethese '$0 ~ a && $0 !~ b { print $7 }' | uniq);disksalias=($disksalias)
+disksalias=$(echo "${alldisks[@]}" | awk -F/ -v a="$findthese" -v b="$ignorethese" '$0 ~ a && $0 !~ b { print $7 }' | uniq);disksalias=($disksalias)
 
 # Capture Raw Disk Data to Work on.
 # Assumption: Last 15 chars can be used to find duplicate device. Combination of device alias and serial number.
 # This will remove any duplicate devices.
-rawdisks=$(echo "${alldisks[@]}" | awk -F'[/ ]' -v a=$findthese -v b=$ignorethese '$0 ~ a && $0 !~ b { print $5}' | rev | uniq -w 15 | rev);rawdisks=($rawdisks)
+rawdisks=$(echo "${alldisks[@]}" | awk -F'[/ ]' -v a="$findthese" -v b="$ignorethese" '$0 ~ a && $0 !~ b { print $5}' | rev | uniq -w 15 | rev);rawdisks=($rawdisks)
 
 # Clean-up disk names to display with sed_filter 
 disks=$(printf '%s\n' "${rawdisks[@]}"|sed "$sed_filter");disks=($disks)

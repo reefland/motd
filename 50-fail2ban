@@ -5,7 +5,7 @@ mapfile -t lines < <(grep -hioP '(\[[a-z-]+\]) (ban|unban)' $logfile | sort | un
 jails=($(printf -- '%s\n' "${lines[@]}" | grep -oP '\[\K[^\]]+' | sort | uniq))
 
 out=""
-for jail in ${jails[@]}; do
+for jail in "${jails[@]}"; do
     bans=$(printf -- '%s\n' "${lines[@]}" | grep -iP "[[:digit:]]+ \[$jail\] ban" | awk '{print $1}')
     unbans=$(printf -- '%s\n' "${lines[@]}" | grep -iP "[[:digit:]]+ \[$jail\] unban" | awk '{print $1}')
     bans=${bans:-0} # default value
