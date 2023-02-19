@@ -9,11 +9,11 @@
 #
 # AUTHOR     : Richard J. DURSO
 # DATE       : 02/18/2023
-# VERSION    : 1.0.0
+# VERSION    : 1.0.1
 ##############################################################################
 
 stamp="/var/lib/update-notifier/updates-available"
 
-[ ! -r "$stamp" ] || grep --color=never -E '^[0-9]* updates|--upgradable' /var/lib/update-notifier/updates-available
+[ ! -r "$stamp" ] || echo -e "\nUpdates:" && grep --color=never -E '^[0-9]* update|--upgradable' /var/lib/update-notifier/updates-available
 
 find $stamp -newermt 'now-7 days' 2> /dev/null | grep -q -m 1 '.' || /usr/share/update-notifier/notify-updates-outdated
