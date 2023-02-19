@@ -1,0 +1,19 @@
+#!/bin/bash
+# NAME:      90-updates-available-no-esm
+#
+# DESCRIPTION: This is a replacement for 90-updates-available
+#
+#              Do to the ANNOYING spam that ESM injects into this file.
+#              This will simply grep the important parts from the file.
+#
+#
+# AUTHOR     : Richard J. DURSO
+# DATE       : 02/18/2023
+# VERSION    : 1.0.0
+##############################################################################
+
+stamp="/var/lib/update-notifier/updates-available"
+
+[ ! -r "$stamp" ] || grep --color=never -E '^[0-9]* updates|--upgradable' /var/lib/update-notifier/updates-available
+
+find $stamp -newermt 'now-7 days' 2> /dev/null | grep -q -m 1 '.' || /usr/share/update-notifier/notify-updates-outdated
