@@ -51,7 +51,7 @@ logfiles='/var/log/syslog /var/log/syslog.1'
 findthese="ata-|scsi-SATA_|nvme-"
 
 # This is used by awk to remove unwanted disk devices which matched above.
-ignorethese="ata-Samsung|nvme-(eui|nvme).*"
+ignorethese="nvme-(eui|nvme).*"
 
 # This is used by sed to remove text from disk device names. This does not alter
 # device selection like ones above.  This just helps to make disk device names
