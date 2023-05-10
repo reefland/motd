@@ -1,0 +1,6 @@
+---
+area/github:
+  - ".github/**/*"
+  - ".gitignore"
+area/README-update:
+  - "**/README.md"
