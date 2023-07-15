@@ -62,7 +62,7 @@ $ tail -1 /etc/hddtemp.db
 
 _Note: All the `\` characters are required, it tells bash not to interpret the following character, accept it as a literal._
 
-* Field 1: Use a string or regex matching the drive's display name (as reported by hddtemp output)
+* Field 1: Use a string or regular expression matching the drive's display name (as reported by hddtemp output)
 * Field 2: SMART data field number (190 in this case)
 * Field 3: temperature unit (C|F)
 * Field 4: label string / comment you define
