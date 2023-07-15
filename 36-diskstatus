@@ -6,12 +6,33 @@
 #              if HDDtemp not available or no temp found the script will 
 #              fallback to smartctl scrapes for temperature information
 #
+#              NVMe devices will use nvme-cli to obtain error and wear-level
+#              indicators.
+#
 # Originally Based on: https://github.com/yboetz/motd
 #
 # AUTHOR     : Richard J. DURSO
-# DATE       : 07/30/2022
-# VERSION    : 1.8.0
+# DATE       : 07/15/2023
+# VERSION    : 1.9
 ##############################################################################
+
+set -eu
+
+# Check if we are root
+if [ "$EUID" -ne 0 ]; then
+  echo "${0##*/}: Please run as root!" >&2
+  exit 1
+fi
+
+# Check if dependant utilities are installed
+CHECK_UTILS="nvme smartctl nc"
+for checkname in $CHECK_UTILS
+do
+  if ! command -v $checkname >/dev/null 2>&1; then
+    echo "${0##*/}: $checkname is not installed. Aborting." >&2
+    exit 1
+  fi
+done
 
 #---[ Variables and Constants ]-----------------------------------------------
 # Max Temperature (red color)
@@ -21,8 +42,10 @@ MAX_TEMP_F=113
 # Warning Temperature, percentage of MAX_TEMP
 WARN_PERCENT=85
 
-# set column width
-COLUMNS=2
+# NVMe/SATA SSD device wearlevel / percent left warnings
+LIFE_WARN=30
+LIFE_CRIT=15
+
 # colors
 # white="\e[39m"
 yellow="\e[1;33m"
@@ -60,6 +83,9 @@ sed_filter="s/^scsi-SATA_//; s/^ata-//; s/Series_//; s/^nvme-//;"
 #-------------------------------------------------------------------------------
 
 #---[ Do Not Update These ]-----------------------------------------------------
+# display data in number of columns
+COLUMNS=2
+
 # These are not disks: partitions, cd-roms, etc.
 notdisks="part[0-9]|sr[0-9]|/dm-|/md-|total"
 
@@ -82,6 +108,22 @@ shortnames=$(printf '%s\n' "${disks[@]}" | sed -r 's/^(.*)_.*$/\1/');shortnames=
 
 # Dynamically grab last 4 digits of disk serial number
 diskserials=$(printf '%s\n' "${disks[@]}"| sed -r 's/.*(....)$/\1/');diskserials=($diskserials)
+#-------------------------------------------------------------------------------
+
+__colorize_percent_left() {
+  # If a percent_left determined, format and colorize it
+  if [[ -n ${percent_left} ]]; then
+    # Set lifetime left color based on status (NVMe provide this)
+    life="${dim} [${undim}${green}${percent_left}%%${dim}]${undim}"
+    if [[ "${percent_left}" -lt "${LIFE_WARN}" ]]; then
+      # Set to yellow warning
+      life="${dim} [${undim}${yellow}${percent_left}%%${dim}]${undim}"
+    elif [[ "${percent_left}" -lt "${LIFE_CRIT}" ]]; then
+      # Set to red critical
+      life="${dim} [${undim}${red}${percent_left}%%${dim}]${undim}"
+    fi
+  fi
+}
 #-------------------------------------------------------------------------------
 
 # get all lines with smartd entries from syslog
@@ -112,13 +154,29 @@ for i in "${!disksalias[@]}"; do  #for every /dev/sdX device name
     possible_names=$(echo "${alldisks[@]}" | awk -v a=${disksalias[$i]} '$0 ~ a { print $1 }');possible_names=($possible_names)
 
     for name in "${possible_names[@]}";do
+      life=""
+      percent_left=""
+      error_status_code=""
+
+      set +e
       result=$(echo "${lines}" | awk -v a=${name} '$0 ~ a {print $(NF-1),$NF; exit 1 }')
       if [ $? -eq 1 ]; then
+        set -e
+        # SATA SSDs have a Wear_Leveling_Count that goes from 100 to 0, if detected report as percent left
+        percent_left=$(smartctl -a /dev/${disksalias[$i]} | awk '/Wear_Leveling_Count/{print $4}')
+        if [[ -n ${percent_left} ]]; then
+          # Multiply it by 1 to remove any leading zeros
+          percent_left=$(expr 1 '*' ${percent_left})
+          # if result is "without error" change to "passed" to make room for percent_left display
+          [[ "${result}" == "without error" ]] && result="passed"
+          __colorize_percent_left
+        fi
         break
       fi
+      set -e
 
       # If no result, see if unexpected results can be found
-      if [ -z ${result} ]; then
+      if [[ -z ${result} ]]; then
         if [ $(tac $logfiles 2>/dev/null | grep -m 1 -HiP "${name}.*self-test" | grep -ci "skip") -eq 1 ]; then   # Test skipped
           result="skipped"
           break
@@ -132,8 +190,33 @@ for i in "${!disksalias[@]}"; do  #for every /dev/sdX device name
         # If this show nothing, then data has rotated out of where "$logfiles" is checking.
         # tac $logfiles 2>/dev/null | grep -m 1 -HiP "${name}.*self-test"
 
-        # Still no result, device not being monitored? See if smartctl has a status we can show
-        result=$(smartctl -a /dev/${disksalias[$i]} | awk '/^SMART.*result:/{print $(NF)}')
+        # if NVMe device, get status from nvme-cli reporting
+        if [ $(echo ${disksalias[$i]} | grep -ci "nvme") -eq 1 ]; then
+          # Get device wear level estimate percentage_used and subtract that from 100%
+          percent_left=$(expr 100 - $(nvme smart-log -H /dev/${disksalias[$i]} | awk -F '[:% ]' '/^percentage_used/{print $3}'))
+          [ -n ${percent_left} ] && __colorize_percent_left
+
+          # Use nvme-cli error-log to see if error count is equal to zero
+          if [ $(nvme error-log -e 1 /dev/${disksalias[$i]} | awk '/^error_count.*: /{print $(NF)}') -eq 0 ]; then
+            #result="without error"
+            result="passed"
+            break
+          else
+            # Not zero error-count
+            #result="with error"
+            result="error"
+
+            # Determine value of status_field, return just INVALID_FIELD, READ_ERROR, etc..
+            # examples:
+            # status_field : 0x4004(INVALID_FIELD: A reserved coded value or an unsupported value in a defined field)
+            # status_field : 0xc502(READ_ERROR: The read data could not be recovered from the media)
+            error_status_code=$(nvme error-log -e 1 /dev/${disksalias[$i]} | awk -F '[(:]' '/^status_field/{print $3}')
+
+          fi
+        else
+          # Still no result, device not being monitored? See if smartctl has a status we can show
+          result=$(smartctl -a /dev/${disksalias[$i]} | awk '/^SMART.*result:/{print $(NF)}')
+        fi
       fi
     done
 
@@ -204,7 +287,7 @@ for i in "${!disksalias[@]}"; do  #for every /dev/sdX device name
         if [[ "${temp}" -gt "${MAX_TEMP}" ]]; then
             color=$red
         else
-          WARN_TEMP=$(expr ${MAX_TEMP} '*' ${WARN_PERCENT} /  100)
+          WARN_TEMP=$(expr ${MAX_TEMP} '*' ${WARN_PERCENT} / 100)
           if [[ ${temp} -gt ${WARN_TEMP} ]]; then
             color=$yellow
           else          
@@ -216,10 +299,10 @@ for i in "${!disksalias[@]}"; do  #for every /dev/sdX device name
 
     # Set color based on known or unknown status
     case "${result}" in
-      "without error"|"PASSED")
+      "without error"|"PASSED"|"passed")
         status_color=$green
       ;;
-      "with error"|"FAILED!")
+      "with error"|"FAILED!"|"error")
         status_color=$red
       ;;
       "skipped")
@@ -239,7 +322,7 @@ for i in "${!disksalias[@]}"; do  #for every /dev/sdX device name
     esac;
 
     # print temp & smartd error
-    out+="${shortnames[$i]}_${diskserials[$i]} (${disksalias[$i]}):,${color}${temp}${unit}${undim} | ${status_color}${result}${undim},"
+    out+="${shortnames[$i]}_${diskserials[$i]} (${disksalias[$i]}):,${color}${temp}${unit}${undim},${status_color}${result}${life}${undim},"
     # insert \n every $COLUMNS column
     if [ $((($i+1) % $COLUMNS)) -eq 0 ]; then
         out+="\n"
@@ -248,4 +331,5 @@ done
 out+="\n"
 
 printf "\ndisk status:\n"
-printf "$out" | column -ts $',' | sed -e 's/^/  /'
+# column: -t is table format, -s is column seperator, -d is do not display header
+printf "$out" | column -t -s$',' -d --table-columns DEVICE,TEMP1,STATUS,DEVICE,TEMP2,STATUS --table-right TEMP1,TEMP2 | sed -e 's/^/  /'

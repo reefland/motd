@@ -6,8 +6,7 @@ Collection of 'Message of the Day' scripts with ZFS Enhancements
 
 * [update-motd](https://launchpad.net/update-motd)
 * [figlet](http://www.figlet.org/) & [lolcat](https://github.com/busyloop/lolcat) (for `10-hostname`)
-* [hddtemp](https://savannah.nongnu.org/projects/hddtemp/) (for `36-diskstatus`) [optional]
-* [smartmontools](https://www.smartmontools.org/) (for `36-diskstatus`)
+* [smartmontools](https://www.smartmontools.org/), [nvme-cli](https://packages.ubuntu.com/search?keywords=nvme-cli), [hddtemp](https://savannah.nongnu.org/projects/hddtemp/) [optional] (for `36-diskstatus`)
 
 ### How do I set it up?
 
@@ -17,11 +16,10 @@ option set to `yes` in your sshd config.
 The duplicate files are different versions of the same, use either one of them. E.g. `30-zpool-simple`
 will not print usage bars.
 
-The script `36-diskstatus` greps syslog for smartd entries to read last self-test result.
-You have to enable smartd monitoring & run regular self-tests for it to display anything.
+The script `36-diskstatus` will grep syslog for smartd entries to read last self-test result. You have to enable smartd monitoring & run regular self-tests for it to display anything. The nvme client is required to get NVMe device errors and wear leveling.
 
 If you use `50-fail2ban` you should comment out the `compress` option in `/etc/logrotate.d/fail2ban`,
-so that the logs are not compressed and can be read by `grep`.
+so that the logs are not compressed and can be read by grep.
 
 ![screen_shot](screen_shot.png)
 
@@ -33,7 +31,7 @@ The `hddtemp` utility was once the primary way to monitor and gather drive tempe
 
 ---
 
-## Adding Sensors to HDDTemp
+### Adding Sensors to HDDTemp
 
 Since HDDTemp project is no longer maintained it lacks database entries for many not so new technologies.  It should be straight forward to add sensors for SATA SSD devices, but it lacks any NVMe support.
 
@@ -78,7 +76,7 @@ $ sudo hddtemp /dev/sda
 
 ---
 
-## Disk Status has Limited NVMe Support
+## Disk Status has NVMe Support
 
 Below shows how support for NVMe devices is provided in `36-diskstatus` where it will include any device that starts with `nvme-`:
 
@@ -117,7 +115,10 @@ Should you have many devices and one reports `FAILED` having part of the serial 
 
 The HDDTemp utility does not support NVMe devices.  If `36-diskstatus` script detects a NVMe device, it will try to get the temperature from `smartctl` by looking for `Temperature:` and parsing the value such as `38 Celsius`.
 
-![NVMe Test Status](nvme_status_passed.png)
+```text
+disk status:
+  Samsung_SSD_980_1TB_316T (nvme0n1):   38C passed [97%]
+```
 
 The HDDTemp utility allows devices to report in Celsius or Fahrenheit. If the script had to pull a temperature from `smartctl` and that value was Celsius, you can convert that to Fahrenheit by setting variable `convert_c_to_f` to `/bin/true` (set to `/bin/false` for Celsius).
 
@@ -128,7 +129,10 @@ The HDDTemp utility allows devices to report in Celsius or Fahrenheit. If the sc
 convert_c_to_f=/bin/true
 ```
 
-![Converted C to F](nvme_status_c_to_f.png)
+```text
+disk status:
+  Samsung_SSD_980_1TB_316T (nvme0n1):   98F passed [97%]
+```
 
 NOTE: Some devices may go into sleep mode and report `SLP` instead of current temperature:
 
@@ -136,6 +140,16 @@ NOTE: Some devices may go into sleep mode and report `SLP` instead of current te
 disk status:
   SSSTC_CVB-8D128-HP_F1PA (sda):  SLP | without error
 ```
+
+---
+
+Example showing a mix of SATA SSDs, SATA HDDs and NVMe devices.
+
+* Temperatures are set to be converted to Fahrenheit
+* Elevated temperatures are in yellow
+* Wear level / life expectancy are expressed as a percentage from 100% and lowers towards 0%
+
+![Multi Device Example](multi_device_example.png)
 
 ---
 
@@ -147,16 +161,25 @@ When the Customized Message of the Day `disk status:` states a drive is `without
 
 ```text
 disk status:
-  Samsung_SSD_840_928H (sda):  73F | without error
+  WDC_WD120EFBX-68B0EN0_U62B (sda):  73F without error
+```
+
+* SATA SSD which support a wear level indicator will have the `without error` changed to `passed` to make room for the indicator.  This is a life expectancy expressed as a percentage that starts at 100% and decreases towards 0%.
+
+```text
+disk status:
+  Samsung_SSD_860_EVO_1TB_043Z (sda):   78F  passed [87%]
 ```
 
 #### PASSED or FAILED
 
-When a devices test result is not found (either not supported, not performed, log purged, etc) then the `smartctl` self assessment status will be displayed which should be a simple `PASSED` or `FAILED!` value.  It is still possible to show `PASSED` and have device issues. This is **not** an equivalent of `without error`.
+When a SATA device test result is not found (either not supported, not performed, log purged, etc) then the `smartctl` self assessment status will be displayed which should be a simple `PASSED` or `FAILED!` value.  It is still possible to show `PASSED` and have device issues. This is **not** an equivalent of `without error`.
+
+NVMe device will use the nvme-cli to fetch error information from the device. If the last test, a result of zero is `passed` and a non-zero is `error`.  An error indicates you need to investigate the device, start with something like `sudo nvme error-log -e 1 /dev/nvme0n1` to return the last error log entry.
 
 ```text
 disk status:
-  Samsung_SSD_980_1TB_316T (nvme0n1):  98F | PASSED
+  Samsung_SSD_980_1TB_316T (nvme0n1):  98F passed [97%]
 ```
 
 #### Untested[]
@@ -167,6 +190,12 @@ When no test result can be found, and no self assessment value can be obtained f
 disk status:
   VBOX_HARDDISK_eb03 (sda):  ERR | untested[] 
 ```
+
+#### Wear Level Indicator
+
+SATA SSD and NVMe devices which report a detectable wear level indicator or a life expectancy indicator, will be expressed as a percentage that starts at 100% and decreases towards 0%.
+
+The indicator will remain green until it drops below 30%, it will then be yellow to get your attention. Below 15% will turn red. The device should be replaced.
 
 ---
 
