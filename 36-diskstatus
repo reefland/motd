@@ -12,7 +12,7 @@
 # Originally Based on: https://github.com/yboetz/motd
 #
 # AUTHOR     : Richard J. DURSO
-# DATE       : 07/15/2023
+# DATE       : 07/16/2023
 # VERSION    : 1.9
 ##############################################################################
 
@@ -93,21 +93,21 @@ notdisks="part[0-9]|sr[0-9]|/dm-|/md-|total"
 alldisks=$(find /dev/disk/by-id/ -type l -printf "%p %l\n" | sort -k 2  | awk -F/ -v a="$notdisks" '$0 !~ a  { print }')
 
 # Dynamically generate simple disk names available (sda, sdb, sdc, ...)  these change if disks are removed
-disksalias=$(echo "${alldisks[@]}" | awk -F/ -v a="$findthese" -v b="$ignorethese" '$0 ~ a && $0 !~ b { print $7 }' | uniq);disksalias=($disksalias)
+readarray -t disksalias <<< $(echo "${alldisks[@]}" | awk -F/ -v a="$findthese" -v b="$ignorethese" '$0 ~ a && $0 !~ b { print $7 }' | uniq)
 
 # Capture Raw Disk Data to Work on.
 # Assumption: Last 15 chars can be used to find duplicate device. Combination of device alias and serial number.
 # This will remove any duplicate devices.
-rawdisks=$(echo "${alldisks[@]}" | awk -F'[/ ]' -v a="$findthese" -v b="$ignorethese" '$0 ~ a && $0 !~ b { print $5}' | rev | uniq -w 15 | rev);rawdisks=($rawdisks)
+readarray -t rawdisks <<< $(echo "${alldisks[@]}" | awk -F'[/ ]' -v a="$findthese" -v b="$ignorethese" '$0 ~ a && $0 !~ b { print $5}' | rev | uniq -w 15 | rev)
 
 # Clean-up disk names to display with sed_filter 
-disks=$(printf '%s\n' "${rawdisks[@]}"|sed "$sed_filter");disks=($disks)
+readarray -t disks <<< $(printf '%s\n' "${rawdisks[@]}"|sed "$sed_filter")
 
 # Grab a shorter subset of the name. It will return everything to the LEFT of the right-most "_"
-shortnames=$(printf '%s\n' "${disks[@]}" | sed -r 's/^(.*)_.*$/\1/');shortnames=($shortnames)
+readarray -t shortnames <<< $(printf '%s\n' "${disks[@]}" | sed -r 's/^(.*)_.*$/\1/')
 
 # Dynamically grab last 4 digits of disk serial number
-diskserials=$(printf '%s\n' "${disks[@]}"| sed -r 's/.*(....)$/\1/');diskserials=($diskserials)
+readarray -t diskserials <<< $(printf '%s\n' "${disks[@]}"| sed -r 's/.*(....)$/\1/')
 #-------------------------------------------------------------------------------
 
 __colorize_percent_left() {
@@ -127,7 +127,7 @@ __colorize_percent_left() {
 #-------------------------------------------------------------------------------
 
 # get all lines with smartd entries from syslog
-lines=$(tac $logfiles 2>/dev/null | grep -hiP 'smartd.*previous self-test')
+lines=$(tac "$logfiles" 2>/dev/null | grep -hiP 'smartd.*previous self-test')
 
 # use nc to query temps from each hddtemp daemon instance, echo needed to get NC to return data
 fetch_hddtemp=$(echo -n | nc $hddtemp_host $hddtemp_port |sed 's/|//m' | sed 's/||/ \n/g')
@@ -151,7 +151,7 @@ out=""
 for i in "${!disksalias[@]}"; do  #for every /dev/sdX device name
     # Get smartd testing status
     # Determine all possible names for the disk device
-    possible_names=$(echo "${alldisks[@]}" | awk -v a="${disksalias[$i]}" '$0 ~ a { print $1 }');possible_names=($possible_names)
+    readarray -t possible_names <<< $(echo "${alldisks[@]}" | awk -v a="${disksalias[$i]}" '$0 ~ a { print $1 }')
 
     for name in "${possible_names[@]}";do
       life=""
@@ -246,9 +246,9 @@ for i in "${!disksalias[@]}"; do  #for every /dev/sdX device name
     fi
 
     # if we have a temp see if we need to convert to F
-    if [ ! -z "$temp" ]; then 
+    if [ -n "$temp" ]; then 
       # See if we need to convert C to F
-      if $("${convert_c_to_f}")  && ([ "$unit" == "C" ] || [ "$unit" == "c" ])
+      if "${convert_c_to_f}" && ([ "$unit" == "C" ] || [ "$unit" == "c" ])
       then
         temp=$(( 9 * "$temp" / 5 + 32))
         unit="F"
@@ -322,9 +322,9 @@ for i in "${!disksalias[@]}"; do  #for every /dev/sdX device name
     esac;
 
     # print temp & smartd error
-    out+="${shortnames[$i]}_${diskserials[$i]} (${disksalias[$i]}):,${color}${temp}${unit}${undim},${status_color}${result}${life}${undim},"
+    out+="${shortnames[$i]}_${diskserials[$i]} (${disksalias[$i]}):,${color}${temp}${unit}${undim},${status_color}${result}${error_status_code}${life}${undim},"
     # insert \n every $COLUMNS column
-    if [ $(( $i+1 % "$COLUMNS" )) -eq 0 ]; then
+    if [ $(( ($i+1) % "$COLUMNS" )) -eq 0 ]; then
         out+="\n"
     fi
 done
@@ -332,4 +332,4 @@ out+="\n"
 
 printf "\ndisk status:\n"
 # column: -t is table format, -s is column seperator, -d is do not display header
-printf "$out" | column -t -s$',' -d --table-columns DEVICE,TEMP1,STATUS,DEVICE,TEMP2,STATUS --table-right TEMP1,TEMP2 | sed -e 's/^/  /'
+printf '%s\n' "$out" | column -t -s$',' -d --table-columns DEVICE,TEMP1,STATUS,DEVICE,TEMP2,STATUS --table-right TEMP1,TEMP2 | sed -e 's/^/  /'
