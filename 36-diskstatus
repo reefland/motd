@@ -28,8 +28,8 @@ fi
 CHECK_UTILS="nvme smartctl nc"
 for checkname in $CHECK_UTILS
 do
-  if ! command -v $checkname >/dev/null 2>&1; then
-    echo "${0##*/}: $checkname is not installed. Aborting." >&2
+  if ! command -v "${checkname}" >/dev/null 2>&1; then
+    echo "${0##*/}: ${checkname} is not installed. Aborting." >&2
     exit 1
   fi
 done
@@ -133,7 +133,7 @@ lines=$(tac $logfiles 2>/dev/null | grep -hiP 'smartd.*previous self-test')
 fetch_hddtemp=$(echo -n | nc $hddtemp_host $hddtemp_port |sed 's/|//m' | sed 's/||/ \n/g')
 
 # See if we got any hddtemp data to work with
-if [[ ! -z $fetch_hddtemp ]]; then
+if [[ -n $fetch_hddtemp ]]; then
   while [[ -n $fetch_hddtemp ]]
   do
     hddtemp+=$fetch_hddtemp
@@ -151,7 +151,7 @@ out=""
 for i in "${!disksalias[@]}"; do  #for every /dev/sdX device name
     # Get smartd testing status
     # Determine all possible names for the disk device
-    possible_names=$(echo "${alldisks[@]}" | awk -v a=${disksalias[$i]} '$0 ~ a { print $1 }');possible_names=($possible_names)
+    possible_names=$(echo "${alldisks[@]}" | awk -v a="${disksalias[$i]}" '$0 ~ a { print $1 }');possible_names=($possible_names)
 
     for name in "${possible_names[@]}";do
       life=""
@@ -159,14 +159,14 @@ for i in "${!disksalias[@]}"; do  #for every /dev/sdX device name
       error_status_code=""
 
       set +e
-      result=$(echo "${lines}" | awk -v a=${name} '$0 ~ a {print $(NF-1),$NF; exit 1 }')
+      result=$(echo "${lines}" | awk -v a="${name}" '$0 ~ a {print $(NF-1),$NF; exit 1 }')
       if [ $? -eq 1 ]; then
         set -e
         # SATA SSDs have a Wear_Leveling_Count that goes from 100 to 0, if detected report as percent left
-        percent_left=$(smartctl -a /dev/${disksalias[$i]} | awk '/Wear_Leveling_Count/{print $4}')
+        percent_left=$(smartctl -a "/dev/${disksalias[$i]}" | awk '/Wear_Leveling_Count/{print $4}')
         if [[ -n ${percent_left} ]]; then
-          # Multiply it by 1 to remove any leading zeros
-          percent_left=$(expr 1 '*' ${percent_left})
+          # Base10 to Base10 conversion to remove any leading zeros
+          percent_left=$(( 10#"${percent_left}" ))
           # if result is "without error" change to "passed" to make room for percent_left display
           [[ "${result}" == "without error" ]] && result="passed"
           __colorize_percent_left
@@ -177,11 +177,11 @@ for i in "${!disksalias[@]}"; do  #for every /dev/sdX device name
 
       # If no result, see if unexpected results can be found
       if [[ -z ${result} ]]; then
-        if [ $(tac $logfiles 2>/dev/null | grep -m 1 -HiP "${name}.*self-test" | grep -ci "skip") -eq 1 ]; then   # Test skipped
+        if [ $(tac "$logfiles" 2>/dev/null | grep -m 1 -HiP "${name}.*self-test" | grep -ci "skip") -eq 1 ]; then   # Test skipped
           result="skipped"
           break
         fi
-        if [ $(tac $logfiles 2>/dev/null | grep -m 1 -HiP "${name}.*self-test" | grep -ci "in progress") -eq 1 ]; then   # Test in progress
+        if [ $(tac "$logfiles" 2>/dev/null | grep -m 1 -HiP "${name}.*self-test" | grep -ci "in progress") -eq 1 ]; then   # Test in progress
           result="in progress"
           break
         fi
@@ -191,13 +191,13 @@ for i in "${!disksalias[@]}"; do  #for every /dev/sdX device name
         # tac $logfiles 2>/dev/null | grep -m 1 -HiP "${name}.*self-test"
 
         # if NVMe device, get status from nvme-cli reporting
-        if [ $(echo ${disksalias[$i]} | grep -ci "nvme") -eq 1 ]; then
+        if [ $(echo "${disksalias[$i]}" | grep -ci "nvme") -eq 1 ]; then
           # Get device wear level estimate percentage_used and subtract that from 100%
-          percent_left=$(expr 100 - $(nvme smart-log -H /dev/${disksalias[$i]} | awk -F '[:% ]' '/^percentage_used/{print $3}'))
-          [ -n ${percent_left} ] && __colorize_percent_left
+          percent_left=$(( 100 - $(nvme smart-log -H "/dev/${disksalias[$i]}" | awk -F '[:% ]' '/^percentage_used/{print $3}') ))
+          [ -n "${percent_left}" ] && __colorize_percent_left
 
           # Use nvme-cli error-log to see if error count is equal to zero
-          if [ $(nvme error-log -e 1 /dev/${disksalias[$i]} | awk '/^error_count.*: /{print $(NF)}') -eq 0 ]; then
+          if [ $(nvme error-log -e 1 "/dev/${disksalias[$i]}" | awk '/^error_count.*: /{print $(NF)}') -eq 0 ]; then
             #result="without error"
             result="passed"
             break
@@ -210,22 +210,22 @@ for i in "${!disksalias[@]}"; do  #for every /dev/sdX device name
             # examples:
             # status_field : 0x4004(INVALID_FIELD: A reserved coded value or an unsupported value in a defined field)
             # status_field : 0xc502(READ_ERROR: The read data could not be recovered from the media)
-            error_status_code=$(nvme error-log -e 1 /dev/${disksalias[$i]} | awk -F '[(:]' '/^status_field/{print $3}')
+            error_status_code=$(nvme error-log -e 1 "/dev/${disksalias[$i]}" | awk -F '[(:]' '/^status_field/{print $3}')
 
           fi
         else
           # Still no result, device not being monitored? See if smartctl has a status we can show
-          result=$(smartctl -a /dev/${disksalias[$i]} | awk '/^SMART.*result:/{print $(NF)}')
+          result=$(smartctl -a "/dev/${disksalias[$i]}" | awk '/^SMART.*result:/{print $(NF)}')
         fi
       fi
     done
 
     # if NVMe device get temp and unit from smartctl
-    if [ $(echo ${disksalias[$i]} | grep -ci "nvme") -eq 1 ]; then
+    if [ $(echo "${disksalias[$i]}" | grep -ci "nvme") -eq 1 ]; then
       # Assume something like:  "Temperature:                        37 Celsius" is returned
-      devicetmp=$(smartctl -A /dev/${disksalias[$i]} | awk '/^Temperature:/{print $2, $3}')
-      temp=$(echo $devicetmp | awk '{print $1}')
-      unit=$(echo $devicetmp | awk '{print substr($2,1,1)}') #Only need 1st character
+      devicetmp=$(smartctl -A "/dev/${disksalias[$i]}" | awk '/^Temperature:/{print $2, $3}')
+      temp=$(echo "${devicetmp}" | awk '{print $1}')
+      unit=$(echo "${devicetmp}" | awk '{print substr($2,1,1)}') # Only need 1st character
 
     # Not nvme see if we have hddtemp data
     else
@@ -236,21 +236,21 @@ for i in "${!disksalias[@]}"; do  #for every /dev/sdX device name
       unit=${unit% } # Trim trailing space if it has it
 
       # If no temp data collected from hddtemp, fallback to smartctl
-      if [ -z $temp ]; then 
+      if [ -z "$temp" ]; then 
         # Assume something like:
         # "194 Temperature_Celsius     0x0022   025   055   000    Old_age   Always       -       25 (Min/Max 22/44)"
         # "190 Airflow_Temperature_Cel 0x0032   070   056   000    Old_age   Always       -       30"
-        temp=$(smartctl -A /dev/${disksalias[$i]} | awk '/.*Temperature_Cel.*/{print $10}')
+        temp=$(smartctl -A "/dev/${disksalias[$i]}" | awk '/.*Temperature_Cel.*/{print $10}')
         unit="C"
       fi
     fi
 
     # if we have a temp see if we need to convert to F
-    if [ ! -z $temp ]; then 
+    if [ ! -z "$temp" ]; then 
       # See if we need to convert C to F
-      if $($convert_c_to_f)  && ([ $unit == "C" ] || [ $unit == "c" ])
+      if $("${convert_c_to_f}")  && ([ "$unit" == "C" ] || [ "$unit" == "c" ])
       then
-        temp=$(expr 9 '*' $temp / 5 + 32)
+        temp=$(( 9 * "$temp" / 5 + 32))
         unit="F"
       fi
     fi
@@ -287,8 +287,8 @@ for i in "${!disksalias[@]}"; do  #for every /dev/sdX device name
         if [[ "${temp}" -gt "${MAX_TEMP}" ]]; then
             color=$red
         else
-          WARN_TEMP=$(expr ${MAX_TEMP} '*' ${WARN_PERCENT} / 100)
-          if [[ ${temp} -gt ${WARN_TEMP} ]]; then
+          WARN_TEMP=$(( "${MAX_TEMP}" * "${WARN_PERCENT}" / 100))
+          if [[ "${temp}" -gt "${WARN_TEMP}" ]]; then
             color=$yellow
           else          
             color=$green
@@ -324,7 +324,7 @@ for i in "${!disksalias[@]}"; do  #for every /dev/sdX device name
     # print temp & smartd error
     out+="${shortnames[$i]}_${diskserials[$i]} (${disksalias[$i]}):,${color}${temp}${unit}${undim},${status_color}${result}${life}${undim},"
     # insert \n every $COLUMNS column
-    if [ $((($i+1) % $COLUMNS)) -eq 0 ]; then
+    if [ $(( $i+1 % "$COLUMNS" )) -eq 0 ]; then
         out+="\n"
     fi
 done
