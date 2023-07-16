@@ -93,21 +93,22 @@ notdisks="part[0-9]|sr[0-9]|/dm-|/md-|total"
 alldisks=$(find /dev/disk/by-id/ -type l -printf "%p %l\n" | sort -k 2  | awk -F/ -v a="$notdisks" '$0 !~ a  { print }')
 
 # Dynamically generate simple disk names available (sda, sdb, sdc, ...)  these change if disks are removed
-readarray -t disksalias <<< $(echo "${alldisks[@]}" | awk -F/ -v a="$findthese" -v b="$ignorethese" '$0 ~ a && $0 !~ b { print $7 }' | uniq)
+readarray -t disksalias <<< "$(echo "${alldisks[@]}" | awk -F/ -v a="${findthese}" -v b="${ignorethese}" '$0 ~ a && $0 !~ b { print $7 }' | uniq)"
 
 # Capture Raw Disk Data to Work on.
 # Assumption: Last 15 chars can be used to find duplicate device. Combination of device alias and serial number.
 # This will remove any duplicate devices.
-readarray -t rawdisks <<< $(echo "${alldisks[@]}" | awk -F'[/ ]' -v a="$findthese" -v b="$ignorethese" '$0 ~ a && $0 !~ b { print $5}' | rev | uniq -w 15 | rev)
+readarray -t rawdisks <<< "$(echo "${alldisks[@]}" | awk -F'[/ ]' -v a="${findthese}" -v b="${ignorethese}" '$0 ~ a && $0 !~ b { print $5}' | rev | uniq -w 15 | rev)"
 
 # Clean-up disk names to display with sed_filter 
-readarray -t disks <<< $(printf '%s\n' "${rawdisks[@]}"|sed "$sed_filter")
+readarray -t disks <<< "$(printf '%s\n' "${rawdisks[@]}" | sed "${sed_filter}")"
 
 # Grab a shorter subset of the name. It will return everything to the LEFT of the right-most "_"
-readarray -t shortnames <<< $(printf '%s\n' "${disks[@]}" | sed -r 's/^(.*)_.*$/\1/')
+readarray -t shortnames <<< "$(printf '%s\n' "${disks[@]}" | sed -r 's/^(.*)_.*$/\1/')"
 
 # Dynamically grab last 4 digits of disk serial number
-readarray -t diskserials <<< $(printf '%s\n' "${disks[@]}"| sed -r 's/.*(....)$/\1/')
+readarray -t diskserials <<< "$(printf '%s\n' "${disks[@]}" | sed -r 's/.*(....)$/\1/')"
+
 #-------------------------------------------------------------------------------
 
 __colorize_percent_left() {
@@ -151,7 +152,7 @@ out=""
 for i in "${!disksalias[@]}"; do  #for every /dev/sdX device name
     # Get smartd testing status
     # Determine all possible names for the disk device
-    readarray -t possible_names <<< $(echo "${alldisks[@]}" | awk -v a="${disksalias[$i]}" '$0 ~ a { print $1 }')
+    readarray -t possible_names <<< "$(echo "${alldisks[@]}" | awk -v a="${disksalias[$i]}" '$0 ~ a { print $1 }')"
 
     for name in "${possible_names[@]}";do
       life=""
@@ -177,11 +178,11 @@ for i in "${!disksalias[@]}"; do  #for every /dev/sdX device name
 
       # If no result, see if unexpected results can be found
       if [[ -z ${result} ]]; then
-        if [ $(tac "$logfiles" 2>/dev/null | grep -m 1 -HiP "${name}.*self-test" | grep -ci "skip") -eq 1 ]; then   # Test skipped
+        if [ "$(tac "${logfiles}" 2>/dev/null | grep -m 1 -HiP "${name}.*self-test" | grep -ci "skip")" -eq 1 ]; then   # Test skipped
           result="skipped"
           break
         fi
-        if [ $(tac "$logfiles" 2>/dev/null | grep -m 1 -HiP "${name}.*self-test" | grep -ci "in progress") -eq 1 ]; then   # Test in progress
+        if [ "$(tac "$logfiles" 2>/dev/null | grep -m 1 -HiP "${name}.*self-test" | grep -ci "in progress")" -eq 1 ]; then   # Test in progress
           result="in progress"
           break
         fi
@@ -191,13 +192,13 @@ for i in "${!disksalias[@]}"; do  #for every /dev/sdX device name
         # tac $logfiles 2>/dev/null | grep -m 1 -HiP "${name}.*self-test"
 
         # if NVMe device, get status from nvme-cli reporting
-        if [ $(echo "${disksalias[$i]}" | grep -ci "nvme") -eq 1 ]; then
+        if [ "$(echo "${disksalias[$i]}" | grep -ci "nvme")" -eq 1 ]; then
           # Get device wear level estimate percentage_used and subtract that from 100%
           percent_left=$(( 100 - $(nvme smart-log -H "/dev/${disksalias[$i]}" | awk -F '[:% ]' '/^percentage_used/{print $3}') ))
           [ -n "${percent_left}" ] && __colorize_percent_left
 
           # Use nvme-cli error-log to see if error count is equal to zero
-          if [ $(nvme error-log -e 1 "/dev/${disksalias[$i]}" | awk '/^error_count.*: /{print $(NF)}') -eq 0 ]; then
+          if [ "$(nvme error-log -e 1 "/dev/${disksalias[$i]}" | awk '/^error_count.*: /{print $(NF)}')" -eq 0 ]; then
             #result="without error"
             result="passed"
             break
@@ -215,13 +216,13 @@ for i in "${!disksalias[@]}"; do  #for every /dev/sdX device name
           fi
         else
           # Still no result, device not being monitored? See if smartctl has a status we can show
-          result=$(smartctl -a "/dev/${disksalias[$i]}" | awk '/^SMART.*result:/{print $(NF)}')
+          result="$(smartctl -a "/dev/${disksalias[$i]}" | awk '/^SMART.*result:/{print $(NF)}')"
         fi
       fi
     done
 
     # if NVMe device get temp and unit from smartctl
-    if [ $(echo "${disksalias[$i]}" | grep -ci "nvme") -eq 1 ]; then
+    if [ "$(echo "${disksalias[$i]}" | grep -ci "nvme")" -eq 1 ]; then
       # Assume something like:  "Temperature:                        37 Celsius" is returned
       devicetmp=$(smartctl -A "/dev/${disksalias[$i]}" | awk '/^Temperature:/{print $2, $3}')
       temp=$(echo "${devicetmp}" | awk '{print $1}')
