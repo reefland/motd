@@ -6,7 +6,7 @@ Collection of 'Message of the Day' scripts with ZFS Enhancements
 
 * [update-motd](https://launchpad.net/update-motd)
 * [figlet](http://www.figlet.org/) & [lolcat](https://github.com/busyloop/lolcat) (for `10-hostname`)
-* [smartmontools](https://www.smartmontools.org/), [nvme-cli](https://packages.ubuntu.com/search?keywords=nvme-cli), [hddtemp](https://savannah.nongnu.org/projects/hddtemp/) [optional] (for `36-diskstatus`)
+* [smartmontools](https://www.smartmontools.org/) & [nvme-cli](https://packages.ubuntu.com/search?keywords=nvme-cli)  (for `36-diskstatus`)
 
 ### How do I set it up?
 
@@ -16,7 +16,7 @@ option set to `yes` in your sshd config.
 The duplicate files are different versions of the same, use either one of them. E.g. `30-zpool-simple`
 will not print usage bars.
 
-The script `36-diskstatus` will grep either *journalctl* or *syslog* for `smartd` entries to read last self-test result. You have to enable smartd monitoring & run regular self-tests for it to display anything. The nvme client is required to get NVMe device errors and wear leveling.
+The script `36-diskstatus` will grep either *journalctl* or *syslog* for `smartd` entries to read last self-test result. For non-NVMe devices, you have to enable smartd monitoring & run regular self-tests for it to display anything. The nvme client is required to get NVMe device errors and wear leveling.
 
 If you use `50-fail2ban` you should comment out the `compress` option in `/etc/logrotate.d/fail2ban`,
 so that the logs are not compressed and can be read by grep.
@@ -25,54 +25,9 @@ so that the logs are not compressed and can be read by grep.
 
 ---
 
-## HDDTemp not Required
+## HDDTemp Removed
 
-The `hddtemp` utility was once the primary way to monitor and gather drive temperature information.  However HDDTemp project is considered dead and no longer maintained.  It is no longer included in many distribution repositories. If you do not have HDDTemp this script will fallback to scraping `smartctl` for temperature information.
-
----
-
-### Adding Sensors to HDDTemp
-
-Since HDDTemp project is no longer maintained it lacks database entries for many not so new technologies.  It should be straight forward to add sensors for SATA SSD devices, but it lacks any NVMe support.
-
-If `hddtemp` is unable to locate a temperature sensor but `smartctl` shows a sensor attribute exists, it can be added:
-
-```shell
-$ sudo hddtemp /dev/sda
-WARNING: Drive /dev/sda doesnt seem to have a temperature sensor.
-WARNING: This doesnt mean it hasnt got one.
-WARNING: If you are sure it has one, please contact me (hddtemp@guzu.net).
-WARNING: See --help, --debug and --drivebase options.
-/dev/sda: Samsung SSD 840 Series :  no sensor
-
-$ sudo smartctl -a /dev/sda | grep -i temp
-190 Airflow_Temperature_Cel 0x0032   077   060   000    Old_age   Always       -       23
-
-```
-
-NOTE: Attribute `194` is common for Hard Drives, however many SSDs use attribute `190` for a temperature sensor, this can be added to the HDDTemp database:
-
-```bash
-$ sudo sh -c 'echo \"Samsung SSD \(840\|860\)\" 190 C \"Temp for Samsung SSDs\" >> /etc/hddtemp.db'
-
-# Check entry
-$ tail -1 /etc/hddtemp.db
-"Samsung SSD (840|860)" 190 C "Temp for Samsung SSDs"
-```
-
-_Note: All the `\` characters are required, it tells bash not to interpret the following character, accept it as a literal._
-
-* Field 1: Use a string or regular expression matching the drive's display name (as reported by hddtemp output)
-* Field 2: SMART data field number (190 in this case)
-* Field 3: temperature unit (C|F)
-* Field 4: label string / comment you define
-
-Once added to the HDDTemp Database, HDDTemp should show device temperature:
-
-```shell
-$ sudo hddtemp /dev/sda
-/dev/sda: Samsung SSD 840 Series: 22 C
-```
+The `hddtemp` utility was once the primary way to monitor and gather drive temperature information.  However HDDTemp project is considered dead and no longer maintained.  It is no longer included in many distribution repositories. Support for `hddtemp` has been removed. This script will get device temperature from `smartctl`.
 
 ---
 
