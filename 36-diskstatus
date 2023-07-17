@@ -12,7 +12,7 @@
 # Originally Based on: https://github.com/yboetz/motd
 #
 # AUTHOR     : Richard J. DURSO
-# DATE       : 07/16/2023
+# DATE       : 07/17/2023
 # VERSION    : 1.9
 ##############################################################################
 
@@ -65,7 +65,7 @@ hddtemp_port=7634
 convert_c_to_f=/bin/true
 
 # logfiles to check
-logfiles='/var/log/syslog /var/log/syslog.1'
+logfiles=(/var/log/syslog /var/log/syslog.1)
 #------------------------------------------------------------------------------
 
 #---[ You can updates these ]--------------------------------------------------
@@ -128,10 +128,10 @@ __colorize_percent_left() {
 #-------------------------------------------------------------------------------
 
 # get all lines with smartd entries from syslog
-lines=$(tac $logfiles 2>/dev/null | grep -hiP 'smartd.*previous self-test')
+lines=$(tac "${logfiles[@]}" 2>/dev/null | grep -hiP 'smartd.*previous self-test')
 
 # use nc to query temps from each hddtemp daemon instance, echo needed to get NC to return data
-fetch_hddtemp=$(echo -n | nc $hddtemp_host $hddtemp_port |sed 's/|//m' | sed 's/||/ \n/g')
+fetch_hddtemp=$(echo -n | nc ${hddtemp_host} ${hddtemp_port} |sed 's/|//m' | sed 's/||/ \n/g')
 
 # See if we got any hddtemp data to work with
 if [[ -n $fetch_hddtemp ]]; then
@@ -178,11 +178,11 @@ for i in "${!disksalias[@]}"; do  #for every /dev/sdX device name
 
       # If no result, see if unexpected results can be found
       if [[ -z ${result} ]]; then
-        if [ "$(tac ${logfiles} 2>/dev/null | grep -m 1 -HiP "${name}.*self-test" | grep -ci "skip")" -eq 1 ]; then   # Test skipped
+        if [ "$(tac "${logfiles[@]}" 2>/dev/null | grep -m 1 -HiP "${name}.*self-test" | grep -ci "skip")" -eq 1 ]; then   # Test skipped
           result="skipped"
           break
         fi
-        if [ "$(tac $logfiles 2>/dev/null | grep -m 1 -HiP "${name}.*self-test" | grep -ci "in progress")" -eq 1 ]; then   # Test in progress
+        if [ "$(tac "${logfiles[@]}" 2>/dev/null | grep -m 1 -HiP "${name}.*self-test" | grep -ci "in progress")" -eq 1 ]; then   # Test in progress
           result="in progress"
           break
         fi
@@ -249,7 +249,7 @@ for i in "${!disksalias[@]}"; do  #for every /dev/sdX device name
     # if we have a temp see if we need to convert to F
     if [ -n "$temp" ]; then 
       # See if we need to convert C to F
-      if "${convert_c_to_f}" && ([ "$unit" == "C" ] || [ "$unit" == "c" ])
+      if "${convert_c_to_f}" && { [ "$unit" == "C" ] || [ "$unit" == "c" ]; }
       then
         temp=$(( 9 * "$temp" / 5 + 32))
         unit="F"
