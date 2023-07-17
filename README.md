@@ -16,7 +16,7 @@ option set to `yes` in your sshd config.
 The duplicate files are different versions of the same, use either one of them. E.g. `30-zpool-simple`
 will not print usage bars.
 
-The script `36-diskstatus` will grep syslog for smartd entries to read last self-test result. You have to enable smartd monitoring & run regular self-tests for it to display anything. The nvme client is required to get NVMe device errors and wear leveling.
+The script `36-diskstatus` will grep either *journalctl* or *syslog* for `smartd` entries to read last self-test result. You have to enable smartd monitoring & run regular self-tests for it to display anything. The nvme client is required to get NVMe device errors and wear leveling.
 
 If you use `50-fail2ban` you should comment out the `compress` option in `/etc/logrotate.d/fail2ban`,
 so that the logs are not compressed and can be read by grep.
@@ -76,9 +76,9 @@ $ sudo hddtemp /dev/sda
 
 ---
 
-## Disk Status has NVMe Support
+## 36-diskstatus has NVMe Support
 
-Below shows how support for NVMe devices is provided in `36-diskstatus` where it will include any device that starts with `nvme-`:
+Support for NVMe devices is provided in `36-diskstatus` where it will include any device that starts with `nvme-` (in the `/dev/disk/by-id` directory):
 
 ```bash
 #---[ You can updates these ]--------------------------------------------------
@@ -94,33 +94,33 @@ Then any devices matching `nvme-eui` or `nvme-nvme` are removed from the list.  
 ignorethese="ata-Samsung|nvme-(eui|nvme).*"
 ```
 
-Lastly there is a filter which attempts to pretty up the device names for display, for NVMe devices it removes the `nvme-` prefix with the intent that the device name will now start with your manufacture name.
+Lastly there is a filter which attempts to pretty up the device names for display, for NVMe devices it removes the `nvme-` prefix with the intent that the device name will now start with your manufacture name. It will remove references to `_with_Heatsink` popular with Samsung devices.
 
 ```yaml
 # This is used by sed to remove text from disk device names. This does not alter
 # device selection like ones above.  This just helps to make disk device names
 # nicer (smaller).
-sed_filter="s/^scsi-SATA_//; s/^ata-//; s/Series_//; s/^nvme-//;"
+sed_filter="s/^scsi-SATA_//; s/^ata-//; s/Series_//; s/^nvme-//; s/_with_Heatsink//;"
 ```
 
-Examples:
+Example Results:
 
 * `Samsung_SSD_980_1TB_316T` is a Samsung device, model 980 with 1 TB capacity with last 4 digits of the serial number `316T`.
 * `HP_SSD_EX950_1TB_3005` is a HP (Hewlett Packard) model EX950 with a 1 TB capacity with last 4 digits of serial number `3005`.
-* `WDS100T3XHC-00SJG0_2993` shows how horrible WD (Western Digital) names their devices.  This is a WD Black model SN750 but there is no way to know that by the device name.
+* `WDS100T3XHC-00SJG0_2993` shows how horrible WD (Western Digital) names their devices.  This is a WD Black model SN750 but there is no way to know that by the device name. (You could use the filter above to rename if you like)
 
-Should you have many devices and one reports `FAILED` having part of the serial number will be helpful in identifying which device has a problem.
+The idea behind this is should you have many devices and one reports `FAILED`, having part of the serial number will be helpful in identifying which device has a problem.
 
 ### NVMe Device Temperature
 
-The HDDTemp utility does not support NVMe devices.  If `36-diskstatus` script detects a NVMe device, it will try to get the temperature from `smartctl` by looking for `Temperature:` and parsing the value such as `38 Celsius`.
+If `36-diskstatus` script detects a NVMe device, it will scrape the output of  `smartctl` by looking for `Temperature:` and parsing the value such as `38 Celsius`.
 
 ```text
 disk status:
   Samsung_SSD_980_1TB_316T (nvme0n1):   38C passed [97%]
 ```
 
-The HDDTemp utility allows devices to report in Celsius or Fahrenheit. If the script had to pull a temperature from `smartctl` and that value was Celsius, you can convert that to Fahrenheit by setting variable `convert_c_to_f` to `/bin/true` (set to `/bin/false` for Celsius).
+A Celsius temperature from `smartctl` can be converted to Fahrenheit by setting variable `convert_c_to_f` to `/bin/true` (set to `/bin/false` for Celsius).
 
 ```bash
 # hddtemp can already report F or C temperatures for SATA devices.  If this script
@@ -143,9 +143,9 @@ disk status:
 
 ---
 
-Example showing a mix of SATA SSDs, SATA HDDs and NVMe devices.
+Example showing a mix of SATA SSDs, SATA HDDs and NVMe devices
 
-* Temperatures are set to be converted to Fahrenheit
+* Temperatures are converted to Fahrenheit
 * Elevated temperatures are in yellow
 * Wear level / life expectancy are expressed as a percentage from 100% and lowers towards 0%
 
@@ -175,7 +175,7 @@ disk status:
 
 When a SATA device test result is not found (either not supported, not performed, log purged, etc) then the `smartctl` self assessment status will be displayed which should be a simple `PASSED` or `FAILED!` value.  It is still possible to show `PASSED` and have device issues. This is **not** an equivalent of `without error`.
 
-NVMe device will use the nvme-cli to fetch error information from the device. If the last test, a result of zero is `passed` and a non-zero is `error`.  An error indicates you need to investigate the device, start with something like `sudo nvme error-log -e 1 /dev/nvme0n1` to return the last error log entry.
+NVMe device will use the *nvme-cli* to fetch error information from the device. If the last test, a result of zero is `passed` and a non-zero is `error`.  An error indicates you need to investigate the device, start with something like `sudo nvme error-log -e 1 /dev/nvme0n1` to return the last error log entry.
 
 ```text
 disk status:

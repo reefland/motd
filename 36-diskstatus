@@ -13,7 +13,7 @@
 #
 # AUTHOR     : Richard J. DURSO
 # DATE       : 07/17/2023
-# VERSION    : 1.9.1
+# VERSION    : 1.10
 ##############################################################################
 
 set -eu
@@ -35,6 +35,9 @@ do
 done
 
 #---[ Variables and Constants ]-----------------------------------------------
+# Warning and criticial temperatures vary by devices.  Historically based on
+# personal preferences with spinning rust HDDs.  Acceptable temperatures for
+# SATA SSDs and NVMe are higher.  Adjust these as you see fit.
 # Max Temperature (red color)
 MAX_TEMP_C=45
 MAX_TEMP_F=113
@@ -64,8 +67,14 @@ hddtemp_port=7634
 # if you want that value converted to F.
 convert_c_to_f=/bin/true
 
-# logfiles to check
-logfiles=(/var/log/syslog /var/log/syslog.1)
+# logfiles to check. Leave empty to use journalctl, or specify log files to check
+# logfiles=(/var/log/syslog /var/log/syslog.1)
+logfiles=
+
+# Define how many days to search for journalctl entries. As in days ago to today.
+# Such as past 3 days.
+journalctl_days=3
+
 #------------------------------------------------------------------------------
 
 #---[ You can updates these ]--------------------------------------------------
@@ -74,12 +83,12 @@ logfiles=(/var/log/syslog /var/log/syslog.1)
 findthese="ata-|scsi-SATA_|nvme-"
 
 # This is used by awk to remove unwanted disk devices which matched above.
-ignorethese="nvme-(eui|nvme).*"
+ignorethese="nvme-(eui|nvme).*|nvme-.*_1[[:space:]]"
 
 # This is used by sed to remove text from disk device names. This does not alter
 # device selection like ones above.  This just helps to make disk device names
 # nicer (smaller).
-sed_filter="s/^scsi-SATA_//; s/^ata-//; s/Series_//; s/^nvme-//;"
+sed_filter="s/^scsi-SATA_//; s/^ata-//; s/Series_//; s/^nvme-//; s/_with_Heatsink//;"
 #-------------------------------------------------------------------------------
 
 #---[ Do Not Update These ]-----------------------------------------------------
@@ -111,6 +120,7 @@ readarray -t diskserials <<< "$(printf '%s\n' "${disks[@]}" | sed -r 's/.*(....)
 
 #-------------------------------------------------------------------------------
 
+# Display a colorized percent indicator
 __colorize_percent_left() {
   # If a percent_left determined, format and colorize it
   if [[ -n ${percent_left} ]]; then
@@ -126,9 +136,16 @@ __colorize_percent_left() {
   fi
 }
 #-------------------------------------------------------------------------------
-
-# get all lines with smartd entries from syslog
-lines=$(tac "${logfiles[@]}" 2>/dev/null | grep -hiP 'smartd.*previous self-test')
+# System with only NVMe devices, might not find any results.
+set +e
+if [[ -n "${logfiles}" ]]; then
+  # get all lines with smartd entries from syslog
+  lines=$(tac "${logfiles[@]}" 2>/dev/null | grep -hiP 'smartd.*previous self-test')
+else
+  # get all lines with smartd entries from jounrlctl within last week.
+  lines=$(journalctl -r -t smartd --since "$(date +%Y-%m-%d -d "${journalctl_days} days ago")" | grep -hiP 'smartd.*previous self-test')
+fi
+set -e
 
 # use nc to query temps from each hddtemp daemon instance, echo needed to get NC to return data
 fetch_hddtemp=$(echo -n | nc ${hddtemp_host} ${hddtemp_port} |sed 's/|//m' | sed 's/||/ \n/g')
@@ -152,7 +169,7 @@ out=""
 for i in "${!disksalias[@]}"; do  #for every /dev/sdX device name
     # Get smartd testing status
     # Determine all possible names for the disk device
-    readarray -t possible_names <<< "$(echo "${alldisks[@]}" | awk -v a="${disksalias[$i]}" '$0 ~ a { print $1 }')"
+    readarray -t possible_names <<< "$(echo "${alldisks[@]}" | awk -v a="${disksalias[$i]}" '$0 ~ a { print $1;exit }')"
 
     for name in "${possible_names[@]}";do
       life=""
@@ -178,11 +195,11 @@ for i in "${!disksalias[@]}"; do  #for every /dev/sdX device name
 
       # If no result, see if unexpected results can be found
       if [[ -z ${result} ]]; then
-        if [ "$(tac "${logfiles[@]}" 2>/dev/null | grep -m 1 -HiP "${name}.*self-test" | grep -ci "skip")" -eq 1 ]; then   # Test skipped
+        if [ "$(echo "${lines}" | grep -m 1 -HiP "${name}.*self-test" | grep -ci "skip")" -eq 1 ]; then   # Test skipped
           result="skipped"
           break
         fi
-        if [ "$(tac "${logfiles[@]}" 2>/dev/null | grep -m 1 -HiP "${name}.*self-test" | grep -ci "in progress")" -eq 1 ]; then   # Test in progress
+        if [ "$(echo "${lines}" | grep -m 1 -HiP "${name}.*self-test" | grep -ci "in progress")" -eq 1 ]; then   # Test in progress
           result="in progress"
           break
         fi
@@ -333,4 +350,4 @@ out+="\n"
 
 printf "\ndisk status:\n"
 # column: -t is table format, -s is column seperator, -d is do not display header
-printf '%b' "$out" | column -t -s$',' -d --table-columns DEVICE,TEMP1,STATUS,DEVICE,TEMP2,STATUS --table-right TEMP1,TEMP2 | sed -e 's/^/  /'
+printf '%b' "$out" | column -t -s$',' -d --table-columns DEVICE,TMP1,STATUS,DEVICE,TMP2,STATUS --table-right TMP1,TMP2 | sed -e 's/^/  /'
