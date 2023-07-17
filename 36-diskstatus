@@ -325,7 +325,7 @@ for i in "${!disksalias[@]}"; do  #for every /dev/sdX device name
     # print temp & smartd error
     out+="${shortnames[$i]}_${diskserials[$i]} (${disksalias[$i]}):,${color}${temp}${unit}${undim},${status_color}${result}${error_status_code}${life}${undim},"
     # insert \n every $COLUMNS column
-    if [ $(( ($i+1) % "$COLUMNS" )) -eq 0 ]; then
+    if [ $(( (i+1) % "$COLUMNS" )) -eq 0 ]; then
         out+="\n"
     fi
 done
@@ -333,4 +333,4 @@ out+="\n"
 
 printf "\ndisk status:\n"
 # column: -t is table format, -s is column seperator, -d is do not display header
-printf "$out" | column -t -s$',' -d --table-columns DEVICE,TEMP1,STATUS,DEVICE,TEMP2,STATUS --table-right TEMP1,TEMP2 | sed -e 's/^/  /'
+printf '%b' "$out" | column -t -s$',' -d --table-columns DEVICE,TEMP1,STATUS,DEVICE,TEMP2,STATUS --table-right TEMP1,TEMP2 | sed -e 's/^/  /'
