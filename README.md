@@ -128,7 +128,9 @@ disk status:
 
 #### PASSED or FAILED
 
-When a SATA device test result is not found (either not supported, not performed, log purged, etc) then the `smartctl` self assessment status will be displayed which should be a simple `PASSED` or `FAILED!` value.  It is still possible to show `PASSED` (uppercase) and have device issues. This is **not** an equivalent of `without error`. This is expected with a new device that has not been tested yet, or an initial install where the scheduled test(s) have not run yet.
+When a SATA device test result is not found (either not supported, not performed, log purged, etc) then the `smartctl` self assessment status will be displayed which should be a simple `PASSED` or `FAILED!` value. It is still possible to show `PASSED` (uppercase) and have device issues. This is **not** an equivalent of `without error`.
+
+*This is expected with a new device that has not been tested yet, or an initial install where the scheduled test(s) have not run yet.*
 
 ```text
 disk status:
