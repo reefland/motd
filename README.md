@@ -119,7 +119,7 @@ disk status:
   WDC_WD120EFBX-68B0EN0_U62B (sda):  73F without error
 ```
 
-* SATA SSD which support a wear level indicator will have the `without error` changed to `passed` to make room for the indicator.  This is a life expectancy expressed as a percentage that starts at 100% and decreases towards 0%.
+* SATA SSD which support a wear level indicator will have the `without error` changed to `passed` (lowercase) to make room for the indicator.  This is a life expectancy expressed as a percentage that starts at 100% and decreases towards 0%.
 
 ```text
 disk status:
@@ -128,7 +128,12 @@ disk status:
 
 #### PASSED or FAILED
 
-When a SATA device test result is not found (either not supported, not performed, log purged, etc) then the `smartctl` self assessment status will be displayed which should be a simple `PASSED` or `FAILED!` value.  It is still possible to show `PASSED` and have device issues. This is **not** an equivalent of `without error`.
+When a SATA device test result is not found (either not supported, not performed, log purged, etc) then the `smartctl` self assessment status will be displayed which should be a simple `PASSED` or `FAILED!` value.  It is still possible to show `PASSED` (uppercase) and have device issues. This is **not** an equivalent of `without error`. This is expected with a new device that has not been tested yet, or an initial install where the scheduled test(s) have not run yet.
+
+```text
+disk status:
+  Crucial_MX500_1TB_SSD_3640 (sda):  105F  PASSED
+```
 
 NVMe device will use the *nvme-cli* to fetch error information from the device. If the last test, a result of zero is `passed` and a non-zero is `error`.  An error indicates you need to investigate the device, start with something like `sudo nvme error-log -e 1 /dev/nvme0n1` to return the last error log entry.
 
