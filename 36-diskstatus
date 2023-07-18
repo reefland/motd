@@ -137,7 +137,7 @@ if [[ -n "${logfiles}" ]]; then
   # get all lines with smartd entries from syslog
   lines=$(tac "${logfiles[@]}" 2>/dev/null | grep -hiP 'smartd.*previous self-test')
 else
-  # get all lines with smartd entries from jounrlctl within last week.
+  # get all lines with smartd entries from jounrlctl within specified time
   lines=$(journalctl -r -t smartd --since "$(date +%Y-%m-%d -d "${journalctl_days} days ago")" | grep -hiP 'smartd.*previous self-test')
 fi
 set -e
