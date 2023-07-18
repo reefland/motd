@@ -148,7 +148,7 @@ disk status:
 
 #### Wear Level Indicator
 
-SATA SSD and NVMe devices which report a detectable wear level indicator or a life expectancy indicator, will be expressed as a percentage that starts at 100% and decreases towards 0%.
+SATA SSD and NVMe devices which report a detectable wear level indicator or a life expectancy indicator, will be expressed as a percentage that starts at 100% and decreases towards 0%.  `smartctl` attribute names evaluated: `Wear_Leveling_Count` and `Percent_Lifetime_Remain`, NVMe attribute `percentage_used`.
 
 The indicator will remain green until it drops below 30%, it will then be yellow to get your attention. Below 15% will turn red. The device should be replaced.
 

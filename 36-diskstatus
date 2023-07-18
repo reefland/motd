@@ -13,7 +13,7 @@
 #
 # AUTHOR     : Richard J. DURSO
 # DATE       : 07/18/2023
-# VERSION    : 1.11
+# VERSION    : 1.12
 ##############################################################################
 
 set -eu
@@ -159,8 +159,9 @@ for i in "${!disksalias[@]}"; do  #for every /dev/sdX device name
       result=$(echo "${lines}" | awk -v a="${name}" '$0 ~ a {print $(NF-1),$NF; exit 1 }')
       if [ $? -eq 1 ]; then
         set -e
-        # SATA SSDs have a Wear_Leveling_Count that goes from 100 to 0, if detected report as percent left
-        percent_left=$(smartctl -a "/dev/${disksalias[$i]}" | awk '/Wear_Leveling_Count/{print $4}')
+        # SATA SSDs have a Wear_Leveling_Count or Percent_Lifetime_Remain that goes from 100 to 0 in column "VALUE" (4th column)
+        # if detected report as percent left
+        percent_left=$(smartctl -a "/dev/${disksalias[$i]}" | awk '/(Wear_Leveling_Count|Percent_Lifetime_Remain)/{print $4}')
         if [[ -n ${percent_left} ]]; then
           # Base10 to Base10 conversion to remove any leading zeros
           percent_left=$(( 10#"${percent_left}" ))
