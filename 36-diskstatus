@@ -12,8 +12,8 @@
 # Originally Based on: https://github.com/yboetz/motd
 #
 # AUTHOR     : Richard J. DURSO
-# DATE       : 07/18/2023
-# VERSION    : 1.12
+# DATE       : 08/20/2023
+# VERSION    : 1.13
 ##############################################################################
 
 set -eu
@@ -120,13 +120,13 @@ __colorize_percent_left() {
   # If a percent_left determined, format and colorize it
   if [[ -n ${percent_left} ]]; then
     # Set lifetime left color based on status (NVMe provide this)
-    life="${dim} [${undim}${green}${percent_left}%${dim}]${undim}"
+    life="${dim} ${green}[${undim}${green}${percent_left}%${dim}]${undim}"
     if [[ "${percent_left}" -lt "${LIFE_WARN}" ]]; then
       # Set to yellow warning
-      life="${dim} [${undim}${yellow}${percent_left}%${dim}]${undim}"
+      life="${dim} ${yellow}[${undim}${yellow}${percent_left}%${dim}]${undim}"
     elif [[ "${percent_left}" -lt "${LIFE_CRIT}" ]]; then
       # Set to red critical
-      life="${dim} [${undim}${red}${percent_left}%${dim}]${undim}"
+      life="${dim} ${red}[${undim}${red}${percent_left}%${dim}]${undim}"
     fi
   fi
 }
