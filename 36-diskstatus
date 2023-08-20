@@ -201,15 +201,23 @@ for i in "${!disksalias[@]}"; do  #for every /dev/sdX device name
             break
           else
             # Not zero error-count
-            #result="with error"
-            result="error"
 
             # Determine value of status_field, return just INVALID_FIELD, READ_ERROR, etc..
             # examples:
             # status_field : 0x4004(INVALID_FIELD: A reserved coded value or an unsupported value in a defined field)
+            #  0x2002(INVALID_FIELD: A reserved coded value or an unsupported value in a defined field)
             # status_field : 0xc502(READ_ERROR: The read data could not be recovered from the media)
-            error_status_code=" $(nvme error-log -e 1 "/dev/${disksalias[$i]}" | awk -F '[(:]' '/^status_field/{print $3}')"
+            error_status_code="$(nvme error-log -e 1 "/dev/${disksalias[$i]}" | awk -F '[(:]' '/^status_field/{print $3}' | tr -d '[:blank:]')"
 
+            # INVALID_FIELD errors can usually be ignored.  smartctl is known to issue unsupported commands which some
+            # Samsung devices log as an INVALID_FIELD instead of ignoring.  For now, this type of error code will be ignored.
+            if [[ "${error_status_code}" == "INVALID_FIELD" ]]; then
+              result="passed"
+              error_status_code=""
+            else 
+              #result="with error"
+              result="error"
+            fi
           fi
         else
           # Still no result, device not being monitored? See if smartctl has a status we can show
