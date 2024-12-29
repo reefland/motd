@@ -164,7 +164,7 @@ for i in "${!disksalias[@]}"; do  #for every /dev/sdX device name
         percent_left=$(smartctl -a "/dev/${disksalias[$i]}" | awk '/(Wear_Leveling_Count|Percent_Lifetime_Remain)/{print $4}')
         if [[ -n ${percent_left} ]]; then
           # Base10 to Base10 conversion to remove any leading zeros
-          percent_left=$(( 10#"${percent_left}" ))
+          percent_left="$(( 10#"${percent_left}" ))"
           # if result is "without error" change to "passed" to make room for percent_left display
           [[ "${result}" == "without error" ]] && result="passed"
           __colorize_percent_left
@@ -191,7 +191,7 @@ for i in "${!disksalias[@]}"; do  #for every /dev/sdX device name
         # if NVMe device, get status from nvme-cli reporting
         if [ "$(echo "${disksalias[$i]}" | grep -ci "nvme")" -eq 1 ]; then
           # Get device wear level estimate percentage_used and subtract that from 100%
-          percent_left=$(( 100 - $(nvme smart-log -H "/dev/${disksalias[$i]}" | awk -F '[:% ]' '/^percentage_used/{print $3}') ))
+          percent_left="$(( 100 - $(nvme smart-log -H "/dev/${disksalias[$i]}" | awk -F '[:% ]' '/^percentage_used/{print $3}') ))"
           [ -n "${percent_left}" ] && __colorize_percent_left
 
           # Use nvme-cli error-log to see if error count is equal to zero
@@ -210,8 +210,10 @@ for i in "${!disksalias[@]}"; do  #for every /dev/sdX device name
             error_status_code="$(nvme error-log -e 1 "/dev/${disksalias[$i]}" | awk -F '[(:]' '/^status_field/{print $3}' | tr -d '[:blank:]')"
 
             # INVALID_FIELD errors can usually be ignored.  smartctl is known to issue unsupported commands which some
-            # Samsung devices log as an INVALID_FIELD instead of ignoring.  For now, this type of error code will be ignored.
-            if [[ "${error_status_code}" == "INVALID_FIELD" ]]; then
+            # Samsung devices log as an INVALID_FIELD or InvalidFieldinCommand instead of ignoring.  For now, this type of error
+            # code will be ignored.
+            if echo "${error_status_code}" | grep -q -i "invalid"
+            then
               result="passed"
               error_status_code=""
             else 
@@ -276,18 +278,18 @@ for i in "${!disksalias[@]}"; do  #for every /dev/sdX device name
       ;;
       "32"|"0") # 0C or 32F device likley has no actual temp sensor
         temp="N/A"
-        color=$dim
+        color="$dim"
         unit=""
       ;;
       *) # A temperature value
         if [[ "${temp}" -gt "${MAX_TEMP}" ]]; then
-            color=$red
+            color="$red"
         else
           WARN_TEMP=$(( "${MAX_TEMP}" * "${WARN_PERCENT}" / 100))
           if [[ "${temp}" -gt "${WARN_TEMP}" ]]; then
-            color=$yellow
+            color="$yellow"
           else          
-            color=$green
+            color="$green"
           fi
         fi
       ;;
@@ -296,24 +298,24 @@ for i in "${!disksalias[@]}"; do  #for every /dev/sdX device name
     # Set color based on known or unknown status
     case "${result}" in
       "without error"|"PASSED"|"passed")
-        status_color=$green
+        status_color="$green"
       ;;
       "with error"|"FAILED!"|"error")
-        status_color=$red
+        status_color="$red"
       ;;
       "skipped")
-        status_color=$yellow
+        status_color="$yellow"
       ;;
       "in progress")
-        status_color=$yellow
+        status_color="$yellow"
       ;;
       "a reset")
         result="interrupted"
-        status_color=$yellow
+        status_color="$yellow"
       ;;
       *)
         result="untested[${result}]"
-        status_color=$dim
+        status_color="$dim"
       ;;
     esac;
 
