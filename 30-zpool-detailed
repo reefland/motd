@@ -113,8 +113,8 @@ while read -r line; do
   echo -n " "
   bar "$ds_used_pct" "$snap_used_pct" "$other_used_pct"
   echo -n "  "
-  #printf "Used %6s of %6s (%6s free)\n" "$(format_bytes $used)" "$(format_bytes $capacity)" "$(format_bytes $avail)"
-  printf "%3s%% used of %6s (%6s free)\n" "$used_pct" "$(format_bytes $capacity)" "$(format_bytes $avail)"
+  #printf "Used %6s of %6s (%6s free)\n" "$(format_bytes "$used")" "$(format_bytes "$capacity")" "$(format_bytes "$avail")"
+  printf "%3s%% used of %6s (%6s free)\n" "$used_pct" "$(format_bytes "$capacity")" "$(format_bytes "$avail")"
 done < <(zfs list -Hp -t filesystem,volume -o space -d"${zfs_list_DS_depth}")
 
 # Print Character Legend
