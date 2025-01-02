@@ -9,17 +9,22 @@
 #
 # AUTHOR     : Richard J. DURSO
 # DATE       : 01/01/2025
-# VERSION    : 1.0
+# VERSION    : 1.1
 ##############################################################################
 
 #!/usr/bin/env bash
 
 set -euo pipefail
 
+# How many levels of datasets to report on.
+zfs_list_DS_depth=2
+
+# Skip datasets at less than 1% usage to reduce clutter.
+skip_ds_smaller_than=1
+
 size_format=iec
 bar_width=60
 warn_free_pct=20
-zfs_list_DS_depth=2
 red="\e[1;31m"
 green="\e[1;32m"
 dim="\e[2m"
@@ -100,21 +105,24 @@ while read -r line; do
 
   #echo "$name avail=$avail used=$used usnap=$usedsnap uds=$usedds cap=$capacity dp=$ds_used_pct sp=$snap_used_pct"
 
-  # Maybe remove the pool name
-  local_name="${name#*/}"
-  if [ "$local_name" = "$name" ]; then
-    # pool name line
-    pool_length="${#local_name}"
-    printf "%-*s" "$((col_width - pool_length +2))" "$name"
-  else
-    # dataset line
-    printf "%-*s" "$((col_width - pool_length +2))" "  $local_name"
+  # "used_pct" must be equal to or greater than "skip_ds_smaller_than" to show this entry (reduce clutter)
+  if [ "$used_pct" -ge "$skip_ds_smaller_than" ]; then
+    # Maybe remove the pool name
+    local_name="${name#*/}"
+    if [ "$local_name" = "$name" ]; then
+      # pool name line
+      pool_length="${#local_name}"
+      printf "%-*s" "$((col_width - pool_length +2))" "$name"
+    else
+      # dataset line
+      printf "%-*s" "$((col_width - pool_length +2))" "  $local_name"
+    fi
+    echo -n " "
+    bar "$ds_used_pct" "$snap_used_pct" "$other_used_pct"
+    echo -n "  "
+    #printf "Used %6s of %6s (%6s free)\n" "$(format_bytes "$used")" "$(format_bytes "$capacity")" "$(format_bytes "$avail")"
+    printf "%3s%% used of %6s (%6s free)\n" "$used_pct" "$(format_bytes "$capacity")" "$(format_bytes "$avail")"
   fi
-  echo -n " "
-  bar "$ds_used_pct" "$snap_used_pct" "$other_used_pct"
-  echo -n "  "
-  #printf "Used %6s of %6s (%6s free)\n" "$(format_bytes "$used")" "$(format_bytes "$capacity")" "$(format_bytes "$avail")"
-  printf "%3s%% used of %6s (%6s free)\n" "$used_pct" "$(format_bytes "$capacity")" "$(format_bytes "$avail")"
 done < <(zfs list -Hp -t filesystem,volume -o space -d"${zfs_list_DS_depth}")
 
 # Print Character Legend
