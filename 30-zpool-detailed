@@ -3,13 +3,15 @@
 #
 # DESCRIPTION: Report the Zpool percent used, capacity and free space. By
 #              default it will show 2 levels of datasets. This can be
-#              adjusted with the "zfs_list_DS_depth" variable.
+#              adjusted with the "zfs_list_DS_depth" variable.  Datasets
+#              smaller than 1% used are not displayed to reduce clutter.
+#              This can be adjust with "skip_ds_smaller_than".
 #
 # Originally Based on work from Mike Roach (https://github.com/mroach)
 #
 # AUTHOR     : Richard J. DURSO
-# DATE       : 01/01/2025
-# VERSION    : 1.1
+# DATE       : 01/02/2025
+# VERSION    : 1.2
 ##############################################################################
 
 #!/usr/bin/env bash
@@ -18,6 +20,9 @@ set -euo pipefail
 
 # How many levels of datasets to report on.
 zfs_list_DS_depth=2
+
+# Capture ZFS dataset list by requested depth
+readarray -t zfs_list_DS < <(zfs list -Hp -t filesystem,volume -o space -d"${zfs_list_DS_depth}")
 
 # Skip datasets at less than 1% usage to reduce clutter.
 skip_ds_smaller_than=1
@@ -33,7 +38,6 @@ ds_char="▪"
 snap_char="◆"
 other_char="■"
 free_char="□"
-col_width=$(zfs list -p -t filesystem,volume -o name -d2 | awk '{ if (length($1) > max) {max = length($1)} } END { print max }')
 
 function format_bytes() {
   numfmt --to="${size_format}" --format="%.01f" "$1"
@@ -84,9 +88,45 @@ function bar() {
   echo -ne "${reset}${dim}]${reset}"
 }
 
+# Filter out datasets with a percent used smaller than "skip_ds_smaller_than" and
+# determine the column with needed to show the pool and datasets based on depth
+# depth of datasets to show while not considering datasets filtered out.
+
+function remove_unused_DS() {
+  local index=0
+  local length=0
+  col_width=0
+
+  for line in "${zfs_list_DS[@]}"; do
+    IFS=$'\t' read -r -a props <<< "$line"
+
+    name="${props[0]}"
+    avail="${props[1]}"
+    used="${props[2]}"
+    capacity=$(( used + avail ))
+    used_pct=$(pct "$used" "$capacity")
+
+    if [ "$used_pct" -lt "$skip_ds_smaller_than" ]; then
+      # Small dataset remove from array
+      unset 'zfs_list_DS[index]'
+    else
+      # Get length of this dataset name
+      length="${#name}"
+      # See if dataset name is longer then the previous longest name
+      (( length > col_width )) && col_width=$length
+    fi
+    ((++index))
+  done
+}
+
+# Filter out small datasets and calculate col_width to use in output
+remove_unused_DS
+
+# zpool status
+printf "\nzpool status:%s\n" "$(zpool status -x | sed -e 's/^/  /')"
 echo
 
-while read -r line; do
+for line in "${zfs_list_DS[@]}"; do
   IFS=$'\t' read -r -a props <<< "$line"
 
   name="${props[0]}"
@@ -105,28 +145,23 @@ while read -r line; do
 
   #echo "$name avail=$avail used=$used usnap=$usedsnap uds=$usedds cap=$capacity dp=$ds_used_pct sp=$snap_used_pct"
 
-  # "used_pct" must be equal to or greater than "skip_ds_smaller_than" to show this entry (reduce clutter)
-  if [ "$used_pct" -ge "$skip_ds_smaller_than" ]; then
-    # Maybe remove the pool name
-    local_name="${name#*/}"
-    if [ "$local_name" = "$name" ]; then
-      # pool name line
-      pool_length="${#local_name}"
-      printf "%-*s" "$((col_width - pool_length +2))" "$name"
-    else
-      # dataset line
-      printf "%-*s" "$((col_width - pool_length +2))" "  $local_name"
-    fi
-    echo -n " "
-    bar "$ds_used_pct" "$snap_used_pct" "$other_used_pct"
-    echo -n "  "
-    #printf "Used %6s of %6s (%6s free)\n" "$(format_bytes "$used")" "$(format_bytes "$capacity")" "$(format_bytes "$avail")"
-    printf "%3s%% used of %6s (%6s free)\n" "$used_pct" "$(format_bytes "$capacity")" "$(format_bytes "$avail")"
+  # Maybe remove the pool name
+  local_name="${name#*/}"
+  if [ "$local_name" = "$name" ]; then
+    # pool name line
+    pool_length="${#local_name}"
+    printf "%-*s" "$((col_width - pool_length +2))" "$name"
+  else
+    # dataset line
+    printf "%-*s" "$((col_width - pool_length +2))" "  $local_name"
   fi
-done < <(zfs list -Hp -t filesystem,volume -o space -d"${zfs_list_DS_depth}")
+  bar "$ds_used_pct" "$snap_used_pct" "$other_used_pct"
+  #printf "Used %6s of %6s (%6s free)\n" "$(format_bytes "$used")" "$(format_bytes "$capacity")" "$(format_bytes "$avail")"
+  printf "%3s%% used of %6s (%6s free)\n" "$used_pct" "$(format_bytes "$capacity")" "$(format_bytes "$avail")"
+done
 
 # Print Character Legend
-printf "%-*s" "$((col_width - pool_length +2))" ""
+printf "%-*s" "$((col_width - pool_length +1))" ""
 echo -ne " ${dim}[${reset}${green}${ds_char}${reset}${dim}]${reset}=Datasets,"
 echo -ne " ${dim}[${reset}${green}${snap_char}${reset}${dim}]${reset}=Snapshots,"
 echo -ne " ${dim}[${reset}${green}${other_char}${reset}${dim}]${reset}=Other,"
