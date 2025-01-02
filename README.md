@@ -21,13 +21,19 @@ The script `36-diskstatus` will grep either *journalctl* or *syslog* for `smartd
 If you use `50-fail2ban` you should comment out the `compress` option in `/etc/logrotate.d/fail2ban`,
 so that the logs are not compressed and can be read by grep.
 
-![screen_shot](screen_shot.png)
-
 ---
 
-## HDDTemp Removed
+### New and Improved ZFS Pool Usage
 
-The `hddtemp` utility was once the primary way to monitor and gather drive temperature information.  However HDDTemp project is considered dead and no longer maintained.  It is no longer included in many distribution repositories. Support for `hddtemp` has been removed. This script will get device temperature from `smartctl`.
+New script see `30-zpool-detailed`:
+![Zpool Detailed Example](zpool_detailed_example.png)
+
+* Shows zpool/datasets 2 levels down (configurable)
+* Filters out datasets with less than 1% usage (configurable)
+
+### My Original Docker Server Example
+
+![screen_shot](screen_shot.png)
 
 ---
 
