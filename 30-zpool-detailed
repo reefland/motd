@@ -1,0 +1,125 @@
+#!/usr/bin/env bash
+# NAME:      30-zpool-detailed
+#
+# DESCRIPTION: Report the Zpool percent used, capacity and free space. By
+#              default it will show 2 levels of datasets. This can be
+#              adjusted with the "zfs_list_DS_depth" variable.
+#
+# Originally Based on work from Mike Roach (https://github.com/mroach)
+#
+# AUTHOR     : Richard J. DURSO
+# DATE       : 01/01/2025
+# VERSION    : 1.0
+##############################################################################
+
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+size_format=iec
+bar_width=60
+warn_free_pct=20
+zfs_list_DS_depth=2
+red="\e[1;31m"
+green="\e[1;32m"
+dim="\e[2m"
+reset="\e[0m"
+ds_char="▪"
+snap_char="◆"
+other_char="■"
+free_char="□"
+col_width=$(zfs list -p -t filesystem,volume -o name -d2 | awk '{ if (length($1) > max) {max = length($1)} } END { print max }')
+
+function format_bytes() {
+  numfmt --to="${size_format}" --format="%.01f" "$1"
+}
+
+function pct() {
+  awk -v n="$1" -v d="$2" 'BEGIN{ print int(n*100.0/d) }'
+}
+
+function bar() {
+  ds_b="$1"
+  snap_b="$2"
+  other_b="$3"
+
+  ds_width=$(( (ds_b * bar_width) / 100))
+  snap_width=$(( (snap_b * bar_width) / 100))
+  other_width=$(( (other_b * bar_width) / 100 ))
+  rem=$(( bar_width - ds_width - snap_width - other_width ))
+
+  pct_free=$(( 100 - ds_width - snap_width - other_width ))
+
+  echo -ne "${dim}[${reset}"
+
+  if [ "$pct_free" -lt "$warn_free_pct" ]; then
+    echo -ne "$red"
+  else
+    echo -ne "$green"
+  fi
+
+  if [ $ds_width -gt 0 ]; then
+    printf "${ds_char}%.0s" $(seq 1 $ds_width)
+  fi
+
+  if [ $snap_width -gt 0 ]; then
+    printf "${snap_char}%.0s" $(seq 1 $snap_width)
+  fi
+
+  if [ $other_width -gt 0 ]; then
+    printf "${other_char}%.0s" $(seq 1 $other_width)
+  fi
+
+  if [ $rem -gt 0 ]; then
+    printf "${reset}${dim}${free_char}%.0s" $(seq 1 $rem)
+    # To pad with spaces, do this instead:
+    #printf "${dim}%*s" $rem
+  fi
+
+  echo -ne "${reset}${dim}]${reset}"
+}
+
+echo
+
+while read -r line; do
+  IFS=$'\t' read -r -a props <<< "$line"
+
+  name="${props[0]}"
+  avail="${props[1]}"
+  used="${props[2]}"
+  usedsnap="${props[3]}"
+  usedds="${props[4]}"
+
+  used_other=$(( used - usedsnap - usedds ))
+  capacity=$(( used + avail ))
+
+  used_pct=$(pct "$used" "$capacity")
+  ds_used_pct=$(pct "$usedds" "$capacity")
+  snap_used_pct=$(pct "$usedsnap" "$capacity")
+  other_used_pct=$(pct "$used_other" "$capacity")
+
+  #echo "$name avail=$avail used=$used usnap=$usedsnap uds=$usedds cap=$capacity dp=$ds_used_pct sp=$snap_used_pct"
+
+  # Maybe remove the pool name
+  local_name="${name#*/}"
+  if [ "$local_name" = "$name" ]; then
+    # pool name line
+    pool_length="${#local_name}"
+    printf "%-*s" "$((col_width - pool_length +2))" "$name"
+  else
+    # dataset line
+    printf "%-*s" "$((col_width - pool_length +2))" "  $local_name"
+  fi
+  echo -n " "
+  bar "$ds_used_pct" "$snap_used_pct" "$other_used_pct"
+  echo -n "  "
+  #printf "Used %6s of %6s (%6s free)\n" "$(format_bytes $used)" "$(format_bytes $capacity)" "$(format_bytes $avail)"
+  printf "%3s%% used of %6s (%6s free)\n" "$used_pct" "$(format_bytes $capacity)" "$(format_bytes $avail)"
+done < <(zfs list -Hp -t filesystem,volume -o space -d"${zfs_list_DS_depth}")
+
+# Print Character Legend
+printf "%-*s" "$((col_width - pool_length +2))" ""
+echo -ne " ${dim}[${reset}${green}${ds_char}${reset}${dim}]${reset}=Datasets,"
+echo -ne " ${dim}[${reset}${green}${snap_char}${reset}${dim}]${reset}=Snapshots,"
+echo -ne " ${dim}[${reset}${green}${other_char}${reset}${dim}]${reset}=Other,"
+echo -e  " ${dim}[${reset}${free_char}${reset}${dim}]${reset}=Free Space"
