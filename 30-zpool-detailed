@@ -10,8 +10,8 @@
 # Originally Based on work from Mike Roach (https://github.com/mroach)
 #
 # AUTHOR     : Richard J. DURSO
-# DATE       : 01/02/2025
-# VERSION    : 1.2
+# DATE       : 01/13/2025
+# VERSION    : 1.3
 ##############################################################################
 
 #!/usr/bin/env bash
@@ -90,7 +90,7 @@ function bar() {
 
 # Filter out datasets with a percent used smaller than "skip_ds_smaller_than" and
 # determine the column with needed to show the pool and datasets based on depth
-# depth of datasets to show while not considering datasets filtered out.
+# of datasets to show while not considering datasets filtered out.
 
 function remove_unused_DS() {
   local index=0
@@ -150,10 +150,10 @@ for line in "${zfs_list_DS[@]}"; do
   if [ "$local_name" = "$name" ]; then
     # pool name line
     pool_length="${#local_name}"
-    printf "%-*s" "$((col_width - pool_length +2))" "$name"
+    printf "%-*s" "$((col_width - 2))" "$name"
   else
     # dataset line
-    printf "%-*s" "$((col_width - pool_length +2))" "  $local_name"
+    printf "%-*s" "$((col_width - 2))" "  $local_name"
   fi
   bar "$ds_used_pct" "$snap_used_pct" "$other_used_pct"
   #printf "Used %6s of %6s (%6s free)\n" "$(format_bytes "$used")" "$(format_bytes "$capacity")" "$(format_bytes "$avail")"
