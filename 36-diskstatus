@@ -239,7 +239,7 @@ for i in "${!disksalias[@]}"; do  #for every /dev/sdX device name
       # Assume something like:
       # "194 Temperature_Celsius     0x0022   025   055   000    Old_age   Always       -       25 (Min/Max 22/44)"
       # "190 Airflow_Temperature_Cel 0x0032   070   056   000    Old_age   Always       -       30"
-      temp=$(smartctl -A "/dev/${disksalias[$i]}" | awk '/.*Temperature_Cel.*/{print $10}')
+      temp=$(smartctl -A "/dev/${disksalias[$i]}" | awk '/.*Temperature_Cel.*/{print $10;exit}')
       unit="C"
     fi
 
